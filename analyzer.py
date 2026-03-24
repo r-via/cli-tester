@@ -124,11 +124,29 @@ You are an adversarial CLI tester working in {project_dir}.
 Work directly on the files. Do not ask questions. Do not explain — just fix."""
 
 
+def _patch_sdk_parser():
+    """Monkey-patch SDK to not crash on malformed rate_limit_event."""
+    try:
+        from claude_agent_sdk._internal import message_parser
+        original = message_parser.parse_message
+        def patched(data):
+            try:
+                return original(data)
+            except Exception:
+                if isinstance(data, dict) and data.get("type") == "rate_limit_event":
+                    return None  # skip malformed rate limit events
+                raise
+        message_parser.parse_message = patched
+    except Exception:
+        pass
+
+
 async def run_claude_agent(prompt: str, project_dir: Path) -> None:
     """Run Claude Code agent with the given prompt. It acts directly on files."""
-    from claude_code_sdk import query, ClaudeCodeOptions, AssistantMessage, ResultMessage
+    _patch_sdk_parser()
+    from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, ResultMessage
 
-    options = ClaudeCodeOptions(
+    options = ClaudeAgentOptions(
         max_turns=20,
         permission_mode="bypassPermissions",
         model=MODEL,
@@ -149,11 +167,16 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
             err_str = str(e)
             print(f"  [sdk] error: {err_str}")
             continue
-            print(f"  [sdk] error: {e}")
+
+        if message is None:
             continue
 
         msg_type = type(message).__name__
         turn += 1
+
+        # Skip noisy StreamEvents
+        if msg_type == "StreamEvent":
+            continue
 
         if isinstance(message, (AssistantMessage, ResultMessage)):
             for block in message.content:
@@ -214,7 +237,7 @@ def analyze_and_fix(
 ) -> None:
     """Run Claude opus agent to analyze results and fix code directly."""
     try:
-        from claude_code_sdk import query
+        from claude_agent_sdk import query
     except ImportError:
         print("WARN: claude-code-sdk not installed, skipping agent analysis")
         return

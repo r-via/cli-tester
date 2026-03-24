@@ -36,7 +36,7 @@ def evolve_loop(
 ) -> None:
     """Run probe → agent fix → git commit loop until convergence."""
     try:
-        from claude_code_sdk import query
+        from claude_agent_sdk import query
     except ImportError:
         print("ERROR: pip install claude-code-sdk", file=sys.stderr)
         sys.exit(1)
