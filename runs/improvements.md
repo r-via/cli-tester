@@ -6,4 +6,5 @@
 - [x] [functional] Validate `--timeout` to reject zero or negative values — negative values cause `subprocess.run` to raise `ValueError`, and zero causes immediate timeout on every command
 - [x] [functional] Validate `--rounds` on `evolve` to reject zero or negative values — zero silently does nothing, negative values skip the loop entirely with no feedback
 - [x] [functional] JSON report from `generate_report` should include all individual probe results (command, exit_code, duration_ms, ok) — currently only failures are recorded, making the report incomplete for auditing and re-analysis
-- [ ] [functional] `run --dry-run` report shows 100% pass rate and "3/3 passed" which is misleading — dry-run probes should be clearly marked as skipped (not "passed") in both the JSON report and terminal summary
+- [x] [functional] `run --dry-run` report shows 100% pass rate and "3/3 passed" which is misleading — dry-run probes should be clearly marked as skipped (not "passed") in both the JSON report and terminal summary
+- [ ] [functional] `fallback_report` in `analyzer.py` counts skipped (dry-run) probes as failed — should exclude them so `run --dry-run` local analysis is consistent with the main report

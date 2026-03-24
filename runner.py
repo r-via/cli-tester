@@ -17,10 +17,11 @@ class CommandResult:
     stderr: str
     duration_ms: int
     timed_out: bool
+    skipped: bool = False
 
     @property
     def ok(self) -> bool:
-        return self.exit_code == 0 and not self.timed_out
+        return self.exit_code == 0 and not self.timed_out and not self.skipped
 
 
 def run_all_commands(
@@ -38,7 +39,7 @@ def run_all_commands(
     for cmd in tree.commands:
         full = f"{tree.binary} {cmd.name} --help"
         if dry_run:
-            results.append(_make_result(full, 0, "[dry-run: skipped]", "", 0))
+            results.append(_make_result(full, 0, "[dry-run: skipped]", "", 0, skipped=True))
             continue
         results.append(_run(full, timeout))
 
@@ -105,7 +106,8 @@ def _run(command: str, timeout: int) -> CommandResult:
 
 
 def _make_result(
-    command: str, exit_code: int, stdout: str, stderr: str, duration_ms: int
+    command: str, exit_code: int, stdout: str, stderr: str, duration_ms: int,
+    skipped: bool = False,
 ) -> CommandResult:
     return CommandResult(
         command=command,
@@ -114,4 +116,5 @@ def _make_result(
         stderr=stderr,
         duration_ms=duration_ms,
         timed_out=False,
+        skipped=skipped,
     )

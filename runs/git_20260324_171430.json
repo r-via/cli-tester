@@ -1,0 +1,184 @@
+{
+  "timestamp": "2026-03-24T16:14:30.889176+00:00",
+  "binary": "git",
+  "target": "git",
+  "summary": {
+    "commands_discovered": 22,
+    "total_probes": 23,
+    "passed": 1,
+    "skipped": 22,
+    "failed": 0,
+    "timed_out": 0,
+    "success_rate": "100.0%"
+  },
+  "analysis": {
+    "total": 23,
+    "passed": 1,
+    "failed": 22,
+    "issues": []
+  },
+  "probes": [
+    {
+      "command": "git --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git clone --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git init --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git add --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git mv --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git restore --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git rm --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git bisect --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git diff --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git grep --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git log --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git show --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git status --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git branch --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git commit --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git merge --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git rebase --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git reset --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git switch --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git tag --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git fetch --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git pull --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    },
+    {
+      "command": "git push --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true
+    }
+  ],
+  "failures": []
+}

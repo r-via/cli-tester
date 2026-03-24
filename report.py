@@ -20,6 +20,8 @@ _console = Console() if _RICH else None
 
 def _status_style(r: CommandResult) -> tuple[str, str]:
     """Return (label, rich style) for a result."""
+    if r.skipped:
+        return "SKIP", "bold dim"
     if r.ok:
         return "OK", "bold green"
     if r.timed_out:
@@ -30,15 +32,24 @@ def _status_style(r: CommandResult) -> tuple[str, str]:
 def print_probe_summary(results: list[CommandResult]) -> None:
     """Print a quick summary of probe results."""
     ok = sum(1 for r in results if r.ok)
-    failed = sum(1 for r in results if not r.ok and not r.timed_out)
+    skipped = sum(1 for r in results if r.skipped)
+    failed = sum(1 for r in results if not r.ok and not r.timed_out and not r.skipped)
     timed_out = sum(1 for r in results if r.timed_out)
     total = len(results)
-    rate = f"{ok / total * 100:.0f}%" if total else "N/A"
+    # For pass rate, only count non-skipped probes
+    executed = total - skipped
+    rate = f"{ok / executed * 100:.0f}%" if executed else "N/A"
 
     if _RICH:
         summary = Text()
         summary.append(f"  Probes: ", style="bold")
-        summary.append(f"{ok}/{total} passed ({rate})", style="bold green" if ok == total else "bold yellow")
+        if skipped and executed == 0:
+            # All probes were skipped (pure dry-run)
+            summary.append(f"{skipped}/{total} skipped (dry-run)", style="bold dim")
+        else:
+            summary.append(f"{ok}/{executed} passed ({rate})", style="bold green" if ok == executed else "bold yellow")
+            if skipped:
+                summary.append(f" · {skipped} skipped", style="bold dim")
         if failed:
             summary.append(f" · {failed} failed", style="bold red")
         if timed_out:
@@ -46,7 +57,7 @@ def print_probe_summary(results: list[CommandResult]) -> None:
         _console.print(summary)
 
         for r in results:
-            if not r.ok:
+            if not r.ok and not r.skipped:
                 label, style = _status_style(r)
                 line = Text()
                 line.append(f"    FAIL ", style="red")
@@ -57,7 +68,12 @@ def print_probe_summary(results: list[CommandResult]) -> None:
                     stderr_short = r.stderr[:150].replace("\n", " ")
                     _console.print(f"         [dim]{stderr_short}[/dim]")
     else:
-        print(f"\n  Probes: {ok}/{total} passed ({rate})", end="")
+        if skipped and executed == 0:
+            print(f"\n  Probes: {skipped}/{total} skipped (dry-run)", end="")
+        else:
+            print(f"\n  Probes: {ok}/{executed} passed ({rate})", end="")
+            if skipped:
+                print(f" · {skipped} skipped", end="")
         if failed:
             print(f" · {failed} failed", end="")
         if timed_out:
@@ -65,7 +81,7 @@ def print_probe_summary(results: list[CommandResult]) -> None:
         print()
 
         for r in results:
-            if not r.ok:
+            if not r.ok and not r.skipped:
                 stderr_short = r.stderr[:150].replace("\n", " ") if r.stderr else ""
                 print(f"    FAIL [{r.exit_code}] {r.command}")
                 if stderr_short:
@@ -75,8 +91,10 @@ def print_probe_summary(results: list[CommandResult]) -> None:
 def generate_report(tree, results: list[CommandResult], analysis: dict) -> dict:
     """Build a structured report dict."""
     ok = [r for r in results if r.ok]
-    failed = [r for r in results if not r.ok and not r.timed_out]
+    skipped = [r for r in results if r.skipped]
+    failed = [r for r in results if not r.ok and not r.timed_out and not r.skipped]
     timed_out = [r for r in results if r.timed_out]
+    executed = len(results) - len(skipped)
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -86,9 +104,10 @@ def generate_report(tree, results: list[CommandResult], analysis: dict) -> dict:
             "commands_discovered": len(tree.commands),
             "total_probes": len(results),
             "passed": len(ok),
+            "skipped": len(skipped),
             "failed": len(failed),
             "timed_out": len(timed_out),
-            "success_rate": f"{len(ok) / len(results) * 100:.1f}%" if results else "N/A",
+            "success_rate": f"{len(ok) / executed * 100:.1f}%" if executed else "N/A (dry-run)",
         },
         "analysis": analysis,
         "probes": [
@@ -97,6 +116,7 @@ def generate_report(tree, results: list[CommandResult], analysis: dict) -> dict:
                 "exit_code": r.exit_code,
                 "duration_ms": r.duration_ms,
                 "ok": r.ok,
+                "skipped": r.skipped,
             }
             for r in results
         ],
@@ -122,6 +142,8 @@ def print_report(report: dict) -> None:
         table.add_row("Commands discovered", str(s["commands_discovered"]))
         table.add_row("Total probes", str(s["total_probes"]))
         table.add_row("Passed", f"[green]{s['passed']}[/green]")
+        if s.get("skipped"):
+            table.add_row("Skipped", f"[dim]{s['skipped']}[/dim]")
         table.add_row("Failed", f"[red]{s['failed']}[/red]" if s["failed"] else "0")
         table.add_row("Timed out", f"[yellow]{s['timed_out']}[/yellow]" if s["timed_out"] else "0")
         table.add_row("Success rate", s["success_rate"])
@@ -151,6 +173,8 @@ def print_report(report: dict) -> None:
         print(f"  Commands discovered : {s['commands_discovered']}")
         print(f"  Total probes        : {s['total_probes']}")
         print(f"  Passed              : {s['passed']}")
+        if s.get("skipped"):
+            print(f"  Skipped             : {s['skipped']}")
         print(f"  Failed              : {s['failed']}")
         print(f"  Timed out           : {s['timed_out']}")
         print(f"  Success rate        : {s['success_rate']}")
