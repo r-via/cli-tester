@@ -1,0 +1,42 @@
+{
+  "target": "python3 cli_tester.py",
+  "summary": {
+    "commands_discovered": 4,
+    "total_probes": 5,
+    "passed": 1,
+    "failed": 4,
+    "timed_out": 0,
+    "success_rate": "20.0%"
+  },
+  "analysis": {
+    "score": 2,
+    "issues": [],
+    "suggestions": [
+      "Install claude-code-sdk for deeper analysis: pip install claude-code-sdk"
+    ],
+    "converged": false
+  },
+  "failures": [
+    {
+      "command": "python3 cli_tester.py run --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "python3 cli_tester.py evolve --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "python3 cli_tester.py run --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "python3 cli_tester.py evolve --help",
+      "exit_code": -1,
+      "stderr": ""
+    }
+  ],
+  "timeouts": []
+}

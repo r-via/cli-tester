@@ -84,8 +84,15 @@ def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
         stripped = line.strip()
 
         # Detect section headers (various formats)
-        if re.match(r"^(commands|subcommands|available commands)\s*:?\s*$", stripped, re.I):
+        if re.match(r"^(commands|subcommands|available commands|positional arguments)\s*:?\s*$", stripped, re.I):
             section = "commands"
+            continue
+        # Argparse-style: "{run,evolve}" — extract subcommands inline
+        if re.match(r"^\{[\w,_-]+\}$", stripped):
+            for name in stripped.strip("{}").split(","):
+                name = name.strip()
+                if name:
+                    commands.append(Command(name=name, description=""))
             continue
         if re.match(r"^(options|flags|global options)\s*:?\s*$", stripped, re.I):
             section = "options"
@@ -109,7 +116,14 @@ def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
             # Format: "  command   Description" (indented, 2+ space gap)
             m = re.match(r"^(\S+)\s{2,}(.+)$", stripped)
             if m:
-                commands.append(Command(name=m.group(1), description=m.group(2).strip()))
+                name = m.group(1)
+                desc = m.group(2).strip()
+                # Update description if command already exists (from argparse {cmd1,cmd2} line)
+                existing = next((c for c in commands if c.name == name), None)
+                if existing:
+                    existing.description = desc
+                else:
+                    commands.append(Command(name=name, description=desc))
 
         elif section == "options":
             opt = _parse_option_line(stripped)

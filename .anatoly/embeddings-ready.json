@@ -1,0 +1,13 @@
+{
+  "backend": "advanced-gguf",
+  "code_model": "nomic-ai/nomic-embed-code",
+  "nlp_model": "Qwen/Qwen3-Embedding-8B",
+  "dim_code": 3584,
+  "dim_nlp": 4096,
+  "device": "cuda",
+  "vram_gb": 23,
+  "docker_image": "ghcr.io/ggml-org/llama.cpp:server-cuda",
+  "gguf_code_model": "/home/rviau/projects/anatoly/.anatoly/models/nomic-embed-code.Q5_K_M.gguf",
+  "gguf_nlp_model": "/home/rviau/projects/anatoly/.anatoly/models/Qwen3-Embedding-8B-Q5_K_M.gguf",
+  "setup_at": "2026-03-20T11:08:44Z"
+}

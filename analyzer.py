@@ -1,77 +1,204 @@
-"""Send probe results to Claude for adversarial analysis."""
+"""Send probe results to Claude Code agent (opus) for adversarial analysis."""
 
 from __future__ import annotations
 
+import asyncio
 import json
-import os
-from dataclasses import asdict
+import re
+from pathlib import Path
 
 from parser import HelpTree
 from runner import CommandResult
 
+MODEL = "claude-opus-4-6"
+
 ANALYSIS_PROMPT = """\
-You are an adversarial CLI tester. You received the results of probing a CLI tool.
+You are an adversarial CLI tester. You received:
+- The project's README: the **specification** of what the CLI should do.
+- The project's improvements.md: a checklist of planned improvements with checkboxes.
+- The probe results: what actually happened when every command was executed.
 
 Your job:
-1. Identify commands that crashed, returned unexpected errors, or timed out.
-2. Flag inconsistencies: help says a flag exists but it doesn't work, or vice versa.
-3. Flag missing help text, unclear descriptions, or misleading option names.
-4. Flag any security concerns (e.g., commands that modify state without confirmation).
-5. Rate overall CLI quality from 1-10.
+1. Compare README promises vs actual probe results. Flag every gap.
+2. Check improvements.md — identify the FIRST unchecked ([ ]) improvement.
+3. Evaluate whether that specific improvement has been achieved based on the probe.
+4. Identify crashes, timeouts, inconsistencies, security concerns.
+5. Rate quality 1-10 based on README conformance + improvements progress.
 
-Be concise. Return JSON with this structure:
+IMPORTANT constraints:
+- Do NOT suggest adding new binaries or packages. If an improvement requires a new
+  dependency, mark it with "needs_package": true so the operator can use --yolo.
+- Improvements are either "functional" or "performance" — tag each one.
+
+Return JSON:
 {
   "score": <1-10>,
+  "current_improvement": "<text of the first unchecked improvement, or null if all done>",
+  "improvement_achieved": <true if current improvement is verified by probes>,
   "issues": [
     {"severity": "error|warning|info", "command": "<cmd>", "message": "<what's wrong>"}
   ],
-  "suggestions": ["<improvement suggestion>"],
-  "converged": <true if score >= 9 and no errors>
+  "new_improvements": [
+    {"text": "<improvement>", "type": "functional|performance", "needs_package": false}
+  ],
+  "suggestions": ["<suggestion>"],
+  "converged": <true if score >= 9 AND current_improvement is achieved AND no errors>
 }
 """
+
+
+def find_readme(binary: str) -> str | None:
+    """Try to find and read a README file near the binary."""
+    candidates = [Path(".")]
+    binary_path = Path(binary.split()[-1])
+    if binary_path.exists():
+        candidates.insert(0, binary_path.parent)
+
+    for base in candidates:
+        for name in ("README.md", "README.rst", "README.txt", "README"):
+            readme = base / name
+            if readme.is_file():
+                try:
+                    return readme.read_text()
+                except (UnicodeDecodeError, PermissionError):
+                    continue
+    return None
+
+
+def find_improvements(binary: str) -> str | None:
+    """Try to find and read improvements.md near the binary."""
+    candidates = [Path(".")]
+    binary_path = Path(binary.split()[-1])
+    if binary_path.exists():
+        candidates.insert(0, binary_path.parent)
+
+    for base in candidates:
+        path = base / "improvements.md"
+        if path.is_file():
+            try:
+                return path.read_text()
+            except (UnicodeDecodeError, PermissionError):
+                continue
+    return None
+
+
+def get_current_improvement(improvements_text: str | None) -> str | None:
+    """Return the first unchecked improvement from improvements.md."""
+    if not improvements_text:
+        return None
+    for line in improvements_text.splitlines():
+        m = re.match(r"^- \[ \] (.+)$", line.strip())
+        if m:
+            return m.group(1)
+    return None
+
+
+def check_improvement(improvements_path: Path, improvement_text: str) -> None:
+    """Check off an improvement in improvements.md."""
+    if not improvements_path.is_file():
+        return
+    content = improvements_path.read_text()
+    old = f"- [ ] {improvement_text}"
+    new = f"- [x] {improvement_text}"
+    if old in content:
+        improvements_path.write_text(content.replace(old, new, 1))
+
+
+def append_improvements(improvements_path: Path, new_items: list[dict]) -> None:
+    """Append new improvements to improvements.md, skipping duplicates."""
+    if not new_items:
+        return
+
+    existing = ""
+    if improvements_path.is_file():
+        existing = improvements_path.read_text()
+    else:
+        existing = "# Improvements\n\n"
+
+    for item in new_items:
+        text = item["text"]
+        itype = item.get("type", "functional")
+        needs_pkg = item.get("needs_package", False)
+
+        # Skip if already present
+        if text in existing:
+            continue
+
+        tag = f"[{itype}]"
+        if needs_pkg:
+            tag += " [needs-package]"
+
+        line = f"- [ ] {tag} {text}\n"
+        existing += line
+
+    improvements_path.write_text(existing)
 
 
 def analyze_results(
     tree: HelpTree,
     results: list[CommandResult],
+    binary: str | None = None,
 ) -> dict:
-    """Ask Claude to analyze the probe results adversarially."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
+    """Ask Claude Code agent (opus) to analyze probe results adversarially."""
+    try:
+        from claude_code_sdk import query, ClaudeCodeOptions
+    except ImportError:
+        print("WARN: claude-code-sdk not installed, using fallback analysis")
         return _fallback_analysis(results)
+
+    bin_name = binary or tree.binary
+    readme = find_readme(bin_name)
+    improvements = find_improvements(bin_name)
+    context = _build_context(tree, results, readme, improvements)
+    prompt = f"{ANALYSIS_PROMPT}\n\n---\n\n{context}"
 
     try:
-        import anthropic
-    except ImportError:
-        print("WARN: anthropic SDK not installed, using fallback analysis")
+        result = asyncio.run(_query_claude(prompt))
+        return _parse_response(result)
+    except Exception as e:
+        print(f"WARN: Claude Code query failed ({e}), using fallback analysis")
         return _fallback_analysis(results)
 
-    client = anthropic.Anthropic(api_key=api_key)
 
-    # Build context for Claude
-    context = _build_context(tree, results)
+async def _query_claude(prompt: str, system: str | None = None) -> str:
+    """Send a prompt to Claude Code agent and collect the response."""
+    from claude_code_sdk import query, ClaudeCodeOptions, AssistantMessage, ResultMessage
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        messages=[
-            {
-                "role": "user",
-                "content": f"{ANALYSIS_PROMPT}\n\n---\n\n{context}",
-            }
-        ],
+    options = ClaudeCodeOptions(
+        max_turns=1,
+        system_prompt=system or ANALYSIS_PROMPT,
+        permission_mode="bypassPermissions",
+        model=MODEL,
     )
 
-    # Parse JSON from response
-    response_text = message.content[0].text
+    response_text = ""
+    stream = query(prompt=prompt, options=options)
+    ait = stream.__aiter__()
+    while True:
+        try:
+            message = await ait.__anext__()
+        except StopAsyncIteration:
+            break
+        except Exception:
+            continue
+
+        if isinstance(message, (AssistantMessage, ResultMessage)):
+            for block in message.content:
+                if hasattr(block, "text"):
+                    response_text += block.text
+
+    return response_text
+
+
+def _parse_response(response_text: str) -> dict:
+    """Extract JSON from Claude's response."""
     try:
-        # Try to extract JSON from response (Claude sometimes wraps in markdown)
-        json_match = response_text
-        if "```json" in response_text:
-            json_match = response_text.split("```json")[1].split("```")[0]
-        elif "```" in response_text:
-            json_match = response_text.split("```")[1].split("```")[0]
-        return json.loads(json_match.strip())
+        text = response_text
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0]
+        elif "```" in text:
+            text = text.split("```")[1].split("```")[0]
+        return json.loads(text.strip())
     except (json.JSONDecodeError, IndexError):
         return {
             "score": 0,
@@ -82,21 +209,32 @@ def analyze_results(
         }
 
 
-def _build_context(tree: HelpTree, results: list[CommandResult]) -> str:
-    """Build a concise context string for Claude."""
+def _build_context(
+    tree: HelpTree,
+    results: list[CommandResult],
+    readme: str | None = None,
+    improvements: str | None = None,
+) -> str:
+    """Build context for Claude: README + improvements + probe results."""
     lines = [
         f"# CLI: {tree.binary}",
         f"## Commands discovered: {len(tree.commands)}",
         f"## Total probes run: {len(results)}",
-        "",
-        "## Results:",
     ]
 
+    if readme:
+        lines += ["", "## README (project specification)", readme]
+
+    if improvements:
+        lines += ["", "## improvements.md (improvement checklist)", improvements]
+    else:
+        lines += ["", "## improvements.md", "(not yet created — generate initial improvements)"]
+
+    lines += ["", "## Probe Results:"]
     for r in results:
         status = "OK" if r.ok else ("TIMEOUT" if r.timed_out else f"EXIT={r.exit_code}")
         lines.append(f"  [{status}] {r.command} ({r.duration_ms}ms)")
         if not r.ok and r.stderr:
-            # Truncate long stderr
             stderr_short = r.stderr[:300].replace("\n", " ")
             lines.append(f"    stderr: {stderr_short}")
 
@@ -104,7 +242,7 @@ def _build_context(tree: HelpTree, results: list[CommandResult]) -> str:
 
 
 def _fallback_analysis(results: list[CommandResult]) -> dict:
-    """Simple local analysis when Claude API is not available."""
+    """Simple local analysis when Claude Code SDK is not available."""
     issues = []
     for r in results:
         if r.timed_out:
@@ -127,6 +265,9 @@ def _fallback_analysis(results: list[CommandResult]) -> dict:
     return {
         "score": score,
         "issues": issues,
-        "suggestions": ["Install anthropic SDK for deeper analysis: pip install anthropic"],
+        "current_improvement": None,
+        "improvement_achieved": False,
+        "new_improvements": [],
+        "suggestions": ["Install claude-code-sdk for deeper analysis: pip install claude-code-sdk"],
         "converged": score >= 9 and not any(i["severity"] == "error" for i in issues),
     }
