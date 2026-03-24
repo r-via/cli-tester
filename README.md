@@ -60,6 +60,24 @@ runs/
 
 prompts/
 └── system.md                          # agent system prompt (editable by opus)
+
+agents/                                # agent personas for party mode
+├── analyst.md
+├── architect.md
+├── dev.md
+├── pm.md
+├── qa.md
+├── sm.md
+├── ux-designer.md
+└── quick-flow-solo-dev.md
+
+workflows/
+└── party-mode/                        # multi-agent brainstorming workflow
+    ├── workflow.md
+    └── steps/
+        ├── step-01-agent-loading.md
+        ├── step-02-discussion-orchestration.md
+        └── step-03-graceful-exit.md
 ```
 
 **Each round — one improvement at a time:**
@@ -78,7 +96,14 @@ prompts/
 9. Opus verifies every file it wrote/edited by reading it back
 10. Git commit + push
 11. Orchestrator re-probes to verify → saves probe_round_N.txt
-10. Next round starts as fresh subprocess (reloaded code)
+12. Next round starts as fresh subprocess (reloaded code)
+
+--- after convergence ---
+
+13. Party mode: all agents brainstorm next evolution
+14. Agents produce README_proposal.md
+15. Operator approves or rejects
+16. If approved: new evolution loop against updated README
 ```
 
 ### `improvements.md` — the convergence tracker
@@ -114,6 +139,54 @@ Opus decides when to converge. It must verify:
 - No further meaningful improvement identified
 - It writes `CONVERGED` with its justification
 
+### Phase 4 — Party mode (post-convergence)
+
+After full convergence, `evolve` launches a **party mode**: a multi-agent brainstorming
+session where all available agents discuss the project's future together.
+
+**Inputs:**
+- Agent personas from `agents/*.md` (analyst, architect, dev, pm, qa, sm, ux-designer, quick-flow-solo-dev)
+- Discussion workflow from `workflows/party-mode/workflow.md` and `workflows/party-mode/steps/`
+- Current `README.md` (the specification they just converged to)
+- Source code, `runs/improvements.md` history, `runs/memory.md` lessons learned
+- Probe results from the converged session
+
+```
+CONVERGED
+    │
+    ├─ Party mode starts
+    │   Loads personas from agents/*.md
+    │   Follows workflow from workflows/party-mode/
+    │   Each agent reviews: README, source code, probe results, improvements history
+    │   They discuss: missing features, architecture, UX, testing, performance
+    │
+    ├─ Agents produce: runs/<session>/README_proposal.md
+    │   A complete updated README reflecting their proposed next evolution
+    │
+    ├─ Operator reviews the proposal
+    │   Accept → README_proposal.md replaces README.md
+    │   Reject → evolution stops, proposal kept for reference
+    │
+    └─ If accepted → new evolution loop starts against the updated README
+```
+
+Each agent brings their expertise from their persona file:
+- **Mary** (analyst) — identifies gaps, researches best practices
+- **Winston** (architect) — proposes technical structure and patterns
+- **John** (pm) — prioritizes features by user impact
+- **Quinn** (qa) — flags testability concerns and edge cases
+- **Bob** (sm) — coordinates the discussion, ensures actionable outcomes
+- **Sally** (ux-designer) — reviews CLI ergonomics and user experience
+- **Amelia** (dev) — evaluates implementation feasibility
+- **Barry** (quick-flow-solo-dev) — suggests rapid prototyping approaches
+
+This creates a **continuous evolution cycle**:
+1. `evolve` converges to the current README
+2. Party mode envisions the next version
+3. Operator approves the new README
+4. `evolve` converges to the new README
+5. Repeat
+
 ### `--yolo` mode
 
 By default, improvements that require new packages are blocked. Use `--yolo` to allow them.
@@ -131,6 +204,8 @@ By default, improvements that require new packages are blocked. Use `--yolo` to 
 | `prompts/system.md` | Agent system prompt (editable by opus) |
 | `runs/improvements.md` | Improvement checklist (one per round) |
 | `runs/memory.md` | Cumulative error log (compacted each round) |
+| `agents/*.md` | Agent personas for party mode brainstorming |
+| `workflows/party-mode/` | Multi-agent discussion workflow |
 
 ## Requirements
 
