@@ -117,7 +117,7 @@ def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
                 if name:
                     commands.append(Command(name=name, description=""))
             continue
-        if re.match(r"^(options|flags|global options)\s*:?\s*$", stripped, re.I):
+        if re.match(r"^(options|flags|global options|optional arguments|required arguments|named arguments|general options|common options|advanced options|other options|additional options|output options|display options)\s*:?\s*$", stripped, re.I):
             section = "options"
             continue
         # Git-style section headers: "start a working area (see also: ...)"
