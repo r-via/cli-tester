@@ -139,6 +139,12 @@ def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
             if opt:
                 options.append(opt)
 
+    # Filter out suppressed subcommands (argparse ==SUPPRESS== or _-prefixed internal commands)
+    commands = [
+        c for c in commands
+        if c.description != "==SUPPRESS==" and not c.name.startswith("_")
+    ]
+
     return commands, options
 
 

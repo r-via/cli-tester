@@ -8,4 +8,4 @@
 - [x] [functional] [needs-package] Add colorized terminal output with rich
 - [x] [functional] Fix dry-run mode: subcommand --help probes should not be marked as failures (exit_code was -1)
 - [x] [functional] Skip boolean-flag probes on subcommands that require positional arguments to avoid false failures
-- [ ] [functional] Filter suppressed subcommands (like _round) from discovery so they are not probed
+- [x] [functional] Filter suppressed subcommands (like _round) from discovery so they are not probed
