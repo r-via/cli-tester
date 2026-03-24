@@ -91,6 +91,15 @@ def generate_report(tree, results: list[CommandResult], analysis: dict) -> dict:
             "success_rate": f"{len(ok) / len(results) * 100:.1f}%" if results else "N/A",
         },
         "analysis": analysis,
+        "probes": [
+            {
+                "command": r.command,
+                "exit_code": r.exit_code,
+                "duration_ms": r.duration_ms,
+                "ok": r.ok,
+            }
+            for r in results
+        ],
         "failures": [
             {"command": r.command, "exit_code": r.exit_code, "stderr": r.stderr[:500]}
             for r in failed
