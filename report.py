@@ -3,15 +3,33 @@
 from __future__ import annotations
 
 import json
-from parser import HelpTree
 from runner import CommandResult
 
 
-def generate_report(
-    tree: HelpTree,
-    results: list[CommandResult],
-    analysis: dict,
-) -> dict:
+def print_probe_summary(results: list[CommandResult]) -> None:
+    """Print a quick summary of probe results."""
+    ok = sum(1 for r in results if r.ok)
+    failed = sum(1 for r in results if not r.ok and not r.timed_out)
+    timed_out = sum(1 for r in results if r.timed_out)
+    total = len(results)
+    rate = f"{ok / total * 100:.0f}%" if total else "N/A"
+
+    print(f"\n  Probes: {ok}/{total} passed ({rate})", end="")
+    if failed:
+        print(f" · {failed} failed", end="")
+    if timed_out:
+        print(f" · {timed_out} timed out", end="")
+    print()
+
+    for r in results:
+        if not r.ok:
+            stderr_short = r.stderr[:150].replace("\n", " ") if r.stderr else ""
+            print(f"    FAIL [{r.exit_code}] {r.command}")
+            if stderr_short:
+                print(f"         {stderr_short}")
+
+
+def generate_report(tree, results: list[CommandResult], analysis: dict) -> dict:
     """Build a structured report dict."""
     ok = [r for r in results if r.ok]
     failed = [r for r in results if not r.ok and not r.timed_out]
@@ -29,24 +47,15 @@ def generate_report(
         },
         "analysis": analysis,
         "failures": [
-            {
-                "command": r.command,
-                "exit_code": r.exit_code,
-                "stderr": r.stderr[:500],
-            }
+            {"command": r.command, "exit_code": r.exit_code, "stderr": r.stderr[:500]}
             for r in failed
-        ],
-        "timeouts": [
-            {"command": r.command, "duration_ms": r.duration_ms}
-            for r in timed_out
         ],
     }
 
 
 def print_report(report: dict) -> None:
-    """Pretty-print a report to the terminal."""
+    """Pretty-print a full report to the terminal."""
     s = report["summary"]
-    a = report.get("analysis", {})
 
     print()
     print("=" * 60)
@@ -58,44 +67,12 @@ def print_report(report: dict) -> None:
     print(f"  Failed              : {s['failed']}")
     print(f"  Timed out           : {s['timed_out']}")
     print(f"  Success rate        : {s['success_rate']}")
-    print()
-
-    if a.get("score") is not None:
-        print(f"  Claude score        : {a['score']}/10")
-        converged = a.get("converged", False)
-        print(f"  Converged           : {'YES' if converged else 'NO'}")
-    print()
-
-    issues = a.get("issues", [])
-    if issues:
-        print("-" * 60)
-        print("  ISSUES")
-        print("-" * 60)
-        for issue in issues:
-            sev = issue.get("severity", "?").upper()
-            cmd = issue.get("command", "")
-            msg = issue.get("message", "")
-            print(f"  [{sev}] {cmd}")
-            print(f"    {msg}")
-            print()
-
-    suggestions = a.get("suggestions", [])
-    if suggestions:
-        print("-" * 60)
-        print("  SUGGESTIONS")
-        print("-" * 60)
-        for s in suggestions:
-            print(f"  • {s}")
-        print()
 
     if report["failures"]:
-        print("-" * 60)
-        print("  FAILURES")
-        print("-" * 60)
+        print()
         for f in report["failures"]:
-            print(f"  [{f['exit_code']}] {f['command']}")
+            print(f"  FAIL [{f['exit_code']}] {f['command']}")
             if f["stderr"]:
-                print(f"    {f['stderr'][:200]}")
-            print()
+                print(f"       {f['stderr'][:200]}")
 
     print("=" * 60)

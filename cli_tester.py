@@ -18,8 +18,8 @@ from pathlib import Path
 
 from parser import parse_help
 from runner import run_all_commands
-from analyzer import analyze_results
-from report import generate_report, print_report
+from analyzer import fallback_report
+from report import generate_report, print_report, print_probe_summary
 from evolve import evolve_loop
 
 # Runs are saved alongside this script
@@ -60,12 +60,13 @@ def main():
         # 2. Run every discovered command
         results = run_all_commands(tree, timeout=args.timeout, dry_run=args.dry_run)
 
-        # 3. Analyze with Claude opus (README + improvements.md as spec)
-        analysis = analyze_results(tree, results, binary=args.binary)
+        # 3. Local analysis (run mode = quick report, no agent)
+        analysis = fallback_report(results)
 
         # 4. Report
         report = generate_report(tree, results, analysis)
         print_report(report)
+        print_probe_summary(results)
 
         # Always save to runs/
         output_path = _save_run(report, args.binary, args.output)
