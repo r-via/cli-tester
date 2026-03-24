@@ -118,6 +118,9 @@ def evolve_loop(
             reason = converged_path.read_text().strip()
             print(f"\n*** CONVERGED at round {round_num} ***")
             print(f"  {reason}")
+
+            # Launch party mode post-convergence brainstorming
+            _run_party_mode(src_dir, run_dir, binary)
             return
 
     unchecked = count_unchecked(improvements_path)
@@ -255,6 +258,202 @@ def _ensure_git(src_dir: Path) -> None:
             ["git", "commit", "-m", "evolve: snapshot before evolution"],
             cwd=src_dir, capture_output=True,
         )
+
+
+def _load_agents(src_dir: Path) -> list[dict]:
+    """Load all agent personas from agents/*.md and parse their metadata."""
+    agents_dir = src_dir / "agents"
+    agents = []
+    if not agents_dir.is_dir():
+        return agents
+    for agent_file in sorted(agents_dir.glob("*.md")):
+        try:
+            content = agent_file.read_text()
+        except (OSError, UnicodeDecodeError):
+            continue
+        # Parse basic fields from the markdown
+        agent = {"file": agent_file.name, "content": content}
+        # Extract name from first heading or **Name:** field
+        for line in content.splitlines():
+            line_s = line.strip()
+            if line_s.startswith("# "):
+                agent.setdefault("heading", line_s[2:].strip())
+            if line_s.startswith("**Name:**"):
+                agent["name"] = line_s.split("**Name:**")[1].strip()
+            if line_s.startswith("**Title:**"):
+                agent["title"] = line_s.split("**Title:**")[1].strip()
+            if line_s.startswith("**Role:**"):
+                agent["role"] = line_s.split("**Role:**")[1].strip()
+        agents.append(agent)
+    return agents
+
+
+def _load_workflow(src_dir: Path) -> str:
+    """Load party-mode workflow instructions."""
+    workflow_dir = src_dir / "workflows" / "party-mode"
+    parts = []
+
+    workflow_file = workflow_dir / "workflow.md"
+    if workflow_file.is_file():
+        parts.append(workflow_file.read_text())
+
+    steps_dir = workflow_dir / "steps"
+    if steps_dir.is_dir():
+        for step_file in sorted(steps_dir.glob("step-*.md")):
+            try:
+                parts.append(step_file.read_text())
+            except (OSError, UnicodeDecodeError):
+                continue
+
+    return "\n\n---\n\n".join(parts) if parts else ""
+
+
+def _run_party_mode(src_dir: Path, run_dir: Path, binary: str) -> None:
+    """Launch party mode: multi-agent brainstorming session post-convergence.
+
+    Loads agent personas from agents/*.md and the workflow from
+    workflows/party-mode/, then runs a Claude agent session where all agents
+    discuss the project's future and produce a README_proposal.md.
+    """
+    print("\n🎉 Launching Party Mode — multi-agent brainstorming...")
+
+    # Load agents
+    agents = _load_agents(src_dir)
+    if not agents:
+        print("  WARN: No agent personas found in agents/ — skipping party mode")
+        return
+
+    # Load workflow
+    workflow = _load_workflow(src_dir)
+
+    # Load current README
+    readme_path = src_dir / "README.md"
+    readme = readme_path.read_text() if readme_path.is_file() else "(no README found)"
+
+    # Load improvements history
+    improvements_path = src_dir / "runs" / "improvements.md"
+    improvements = improvements_path.read_text() if improvements_path.is_file() else "(none)"
+
+    # Load memory
+    memory_path = src_dir / "runs" / "memory.md"
+    memory = memory_path.read_text() if memory_path.is_file() else "(none)"
+
+    # Load CONVERGED reason
+    converged_path = run_dir / "CONVERGED"
+    converged_reason = converged_path.read_text().strip() if converged_path.is_file() else ""
+
+    # Load latest probe results
+    probe_text = ""
+    probe_files = sorted(run_dir.glob("probe_round_*.txt"), reverse=True)
+    if probe_files:
+        try:
+            probe_text = probe_files[0].read_text()
+        except OSError:
+            pass
+
+    # Build agent roster for the prompt
+    roster_lines = []
+    for a in agents:
+        name = a.get("name", a.get("heading", a["file"]))
+        title = a.get("title", "")
+        role = a.get("role", "")
+        roster_lines.append(f"- **{name}** ({title}): {role}")
+    roster = "\n".join(roster_lines)
+
+    # Build agent persona details
+    persona_sections = []
+    for a in agents:
+        persona_sections.append(f"### Agent: {a.get('name', a['file'])}\n\n{a['content']}")
+    personas = "\n\n".join(persona_sections)
+
+    prompt = f"""\
+You are a Party Mode facilitator for the cli-tester project. The project has just
+CONVERGED — all improvements are done and the README specification is 100% fulfilled.
+
+Your job: orchestrate a multi-agent brainstorming session where all agents discuss
+the project's future evolution, then produce a `README_proposal.md` in `{run_dir}`.
+
+## Workflow Instructions
+{workflow}
+
+## Agent Roster
+{roster}
+
+## Agent Personas (full details)
+{personas}
+
+## Current README (the spec they just converged to)
+{readme}
+
+## Improvements History
+{improvements}
+
+## Memory (lessons learned)
+{memory}
+
+## Convergence Reason
+{converged_reason}
+
+## Latest Probe Results
+{probe_text}
+
+## Your Task
+
+1. Simulate a multi-agent discussion where each agent (Mary, Winston, John, Quinn,
+   Bob, Sally, Amelia, Barry) brings their expertise to brainstorm the NEXT evolution
+   of this CLI tool. Each agent should speak in their documented communication style.
+
+2. The discussion should cover:
+   - Missing features or capabilities
+   - Architecture improvements
+   - UX/CLI ergonomics
+   - Testing and quality assurance
+   - Performance optimizations
+   - New workflows or integrations
+
+3. After the discussion, produce a complete `README_proposal.md` at:
+   `{run_dir}/README_proposal.md`
+
+   This should be an updated README reflecting the agents' proposed next evolution.
+   It must be a COMPLETE readme (not a diff), building on the current one.
+
+4. Write a brief summary of the discussion to the console.
+
+IMPORTANT: Write the README_proposal.md file using the Write tool. This is the key
+deliverable. The operator will review it and decide whether to accept it as the new
+README for the next evolution cycle.
+"""
+
+    # Try to run via Claude agent SDK
+    try:
+        from analyzer import run_claude_agent
+        import asyncio
+        import warnings
+        warnings.filterwarnings("ignore", message=".*cancel scope.*")
+        warnings.filterwarnings("ignore", message=".*Event loop is closed.*")
+
+        try:
+            asyncio.run(run_claude_agent(prompt, src_dir, round_num=0, run_dir=run_dir))
+        except RuntimeError as e:
+            if "cancel scope" in str(e) or "Event loop is closed" in str(e):
+                pass  # SDK cleanup noise — agent finished successfully
+            else:
+                print(f"  WARN: Party mode agent failed ({e})")
+                return
+    except ImportError:
+        print("  WARN: claude-agent-sdk not installed — skipping party mode agent")
+        print("  Party mode requires the SDK to orchestrate multi-agent discussion.")
+        return
+
+    # Check if README_proposal.md was produced
+    proposal_path = run_dir / "README_proposal.md"
+    if proposal_path.is_file():
+        print(f"\n📋 README_proposal.md written to {proposal_path}")
+        print("  The operator can review and accept/reject the proposal.")
+        print("  If accepted: replace README.md with README_proposal.md")
+        print("  Then run a new evolution loop against the updated README.")
+    else:
+        print("\n  WARN: Party mode did not produce a README_proposal.md")
 
 
 def _git_commit(src_dir: Path, message: str) -> None:
