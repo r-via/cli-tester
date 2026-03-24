@@ -1,0 +1,143 @@
+"""Parse --help output into a structured command tree."""
+
+from __future__ import annotations
+
+import re
+import subprocess
+from dataclasses import dataclass, field
+
+
+@dataclass
+class Option:
+    flag: str
+    alias: str | None = None
+    description: str = ""
+    takes_value: bool = False
+
+    def __str__(self):
+        parts = []
+        if self.alias:
+            parts.append(self.alias)
+        parts.append(self.flag)
+        return ", ".join(parts)
+
+
+@dataclass
+class Command:
+    name: str
+    description: str = ""
+    options: list[Option] = field(default_factory=list)
+    subcommands: list[Command] = field(default_factory=list)
+
+
+@dataclass
+class HelpTree:
+    binary: str
+    help_text: str
+    commands: list[Command] = field(default_factory=list)
+    global_options: list[Option] = field(default_factory=list)
+
+
+def parse_help(binary: str, timeout: int = 10) -> HelpTree | None:
+    """Run <binary> --help and parse the output into a HelpTree."""
+    help_text = _run_help(binary, timeout=timeout)
+    if help_text is None:
+        return None
+
+    tree = HelpTree(binary=binary, help_text=help_text)
+    tree.commands, tree.global_options = _parse_sections(help_text)
+
+    # Recursively get subcommand help
+    for cmd in tree.commands:
+        sub_help = _run_help(binary, cmd.name, timeout=timeout)
+        if sub_help:
+            cmd.options = _parse_options_section(sub_help)
+            _, _ = _parse_sections(sub_help)  # could recurse deeper
+
+    return tree
+
+
+def _run_help(binary: str, *subcommands: str, timeout: int = 10) -> str | None:
+    """Execute a --help command and return stdout+stderr."""
+    cmd = f"{binary} {' '.join(subcommands)} --help".strip()
+    try:
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        # Some CLIs print help to stderr
+        return result.stdout or result.stderr or None
+    except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
+        return None
+
+
+def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
+    """Extract commands and options from help text."""
+    commands: list[Command] = []
+    options: list[Option] = []
+
+    section = None
+    for line in text.splitlines():
+        stripped = line.strip()
+
+        # Detect section headers (various formats)
+        if re.match(r"^(commands|subcommands|available commands)\s*:?\s*$", stripped, re.I):
+            section = "commands"
+            continue
+        if re.match(r"^(options|flags|global options)\s*:?\s*$", stripped, re.I):
+            section = "options"
+            continue
+        # Git-style section headers: "start a working area (see also: ...)"
+        if re.match(r"^[a-z].*\(see also:", stripped, re.I):
+            section = "commands"
+            continue
+        # Generic prose headers that introduce command lists
+        if re.match(r"^(these are|the most|main|common)\s", stripped, re.I):
+            section = "commands"
+            continue
+        # Blank line — don't reset section, many CLIs have gaps within sections
+        if not stripped:
+            continue
+        if stripped.startswith("Usage:") or stripped.startswith("Examples:"):
+            section = None
+            continue
+
+        if section == "commands":
+            # Format: "  command   Description" (indented, 2+ space gap)
+            m = re.match(r"^(\S+)\s{2,}(.+)$", stripped)
+            if m:
+                commands.append(Command(name=m.group(1), description=m.group(2).strip()))
+
+        elif section == "options":
+            opt = _parse_option_line(stripped)
+            if opt:
+                options.append(opt)
+
+    return commands, options
+
+
+def _parse_option_line(line: str) -> Option | None:
+    """Parse a single option line like '  -v, --verbose   Enable verbose output'."""
+    # Pattern: optional short flag, long flag, optional value placeholder, description
+    m = re.match(
+        r"^(-\w)?,?\s*(--[\w-]+)(?:\s+[<\[]\S+[>\]])?\s{2,}(.+)$",
+        line,
+    )
+    if not m:
+        return None
+
+    return Option(
+        flag=m.group(2),
+        alias=m.group(1) or None,
+        description=m.group(3).strip(),
+        takes_value=bool(re.search(r"[<\[]", line)),
+    )
+
+
+def _parse_options_section(text: str) -> list[Option]:
+    """Extract only the options from a help text."""
+    _, options = _parse_sections(text)
+    return options
