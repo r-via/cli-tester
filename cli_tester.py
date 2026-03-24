@@ -20,7 +20,7 @@ from parser import parse_help
 from runner import run_all_commands
 from analyzer import fallback_report
 from report import generate_report, print_report, print_probe_summary
-from evolve import evolve_loop
+from evolve import evolve_loop, run_single_round
 
 # Runs are saved alongside this script
 RUNS_DIR = Path(__file__).parent / "runs"
@@ -48,6 +48,14 @@ def main():
     ev_p.add_argument("--timeout", type=int, default=10, help="Timeout per command (seconds)")
     ev_p.add_argument("--target-dir", default=None, help="Source directory to patch")
     ev_p.add_argument("--yolo", action="store_true", help="Allow adding new packages/binaries")
+
+    # --- _round (internal, called by evolve as subprocess) ---
+    rnd_p = sub.add_parser("_round", help=argparse.SUPPRESS)
+    rnd_p.add_argument("binary")
+    rnd_p.add_argument("--round-num", type=int, required=True)
+    rnd_p.add_argument("--timeout", type=int, default=10)
+    rnd_p.add_argument("--target-dir", default=None)
+    rnd_p.add_argument("--yolo", action="store_true")
 
     args = ap.parse_args()
 
@@ -77,6 +85,15 @@ def main():
         evolve_loop(
             binary=args.binary,
             max_rounds=args.rounds,
+            timeout=args.timeout,
+            target_dir=args.target_dir,
+            yolo=args.yolo,
+        )
+
+    elif args.command == "_round":
+        run_single_round(
+            binary=args.binary,
+            round_num=args.round_num,
             timeout=args.timeout,
             target_dir=args.target_dir,
             yolo=args.yolo,

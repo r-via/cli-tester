@@ -104,8 +104,20 @@ You are an adversarial CLI tester working in {project_dir}.
 ## Probe results (every command from --help was executed)
 {probe_summary}
 
-## Your task
+## CRITICAL RULE: errors first, improvements second
 
+**Phase 1 — ERRORS (mandatory)**:
+Before ANY improvement work, you MUST:
+1. Run the CLI yourself: execute the binary with --help, then try key commands.
+2. Check for Python errors, tracebacks, import errors, runtime crashes.
+3. If ANY error exists in the console output (tracebacks, exceptions, exit codes != 0
+   that indicate bugs), your ONLY job is to fix those errors. Do NOT work on improvements.
+4. After fixing, re-run the command to verify the error is gone.
+5. Repeat until there are ZERO errors.
+
+Only when all commands run cleanly (no tracebacks, no crashes) may you proceed to Phase 2.
+
+**Phase 2 — IMPROVEMENTS (only when zero errors)**:
 1. If improvements.md does not exist, create it with improvements you identified.
    Each improvement must be a checkbox line:
    - [ ] [functional] description
@@ -115,13 +127,19 @@ You are an adversarial CLI tester working in {project_dir}.
 2. If improvements.md exists, focus on the FIRST unchecked [ ] item.
    Read the source code, understand the issue, and fix it by editing the files directly.
 
-3. After fixing, check off the improvement:
-   Change "- [ ]" to "- [x]" for that line in improvements.md.
+3. After fixing, verify the fix works by running the relevant command.
 
-4. Do NOT touch already checked [x] items.
+4. Only check off the improvement (change "- [ ]" to "- [x]") AFTER verifying it works.
+
+5. Do NOT touch already checked [x] items.
 {yolo_note}
 
-Work directly on the files. Do not ask questions. Do not explain — just fix."""
+## Logging
+- Always run commands to verify your changes work.
+- Show the full output of every command you run — do not truncate.
+- If a command fails, show the error and fix it before moving on.
+
+Work directly on the files. Do not ask questions. Do not explain — just fix and verify."""
 
 
 def _patch_sdk_parser():

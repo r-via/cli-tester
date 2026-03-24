@@ -136,18 +136,23 @@ def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
 def _parse_option_line(line: str) -> Option | None:
     """Parse a single option line like '  -v, --verbose   Enable verbose output'."""
     # Pattern: optional short flag, long flag, optional value placeholder, description
+    # Value placeholder can be <VAL>, [VAL], or bare UPPERCASE_WORD
     m = re.match(
-        r"^(-\w)?,?\s*(--[\w-]+)(?:\s+[<\[]\S+[>\]])?\s{2,}(.+)$",
+        r"^(-\w)?,?\s*(--[\w-]+)(?:\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*))?\s{2,}(.+)$",
         line,
     )
     if not m:
         return None
 
+    # Detect value-taking flags: bracketed placeholders or bare UPPERCASE word
+    # immediately after the flag and before the 2+ space description gap
+    has_value = bool(re.search(r"--[\w-]+\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*)\s{2,}", line))
+
     return Option(
         flag=m.group(2),
         alias=m.group(1) or None,
         description=m.group(3).strip(),
-        takes_value=bool(re.search(r"[<\[]", line)),
+        takes_value=has_value,
     )
 
 
