@@ -1,0 +1,444 @@
+{
+  "timestamp": "2026-03-24T19:14:45.533639+00:00",
+  "binary": "git",
+  "target": "git",
+  "summary": {
+    "commands_discovered": 22,
+    "total_probes": 56,
+    "passed": 28,
+    "skipped": 28,
+    "failed": 0,
+    "timed_out": 0,
+    "success_rate": "100.0%"
+  },
+  "analysis": {
+    "total": 28,
+    "passed": 28,
+    "failed": 0,
+    "issues": [],
+    "skipped": 28
+  },
+  "probes": [
+    {
+      "command": "git --help",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git clone --help",
+      "exit_code": 0,
+      "duration_ms": 365,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git init --help",
+      "exit_code": 0,
+      "duration_ms": 363,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git add --help",
+      "exit_code": 0,
+      "duration_ms": 372,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git mv --help",
+      "exit_code": 0,
+      "duration_ms": 368,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git restore --help",
+      "exit_code": 0,
+      "duration_ms": 396,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git rm --help",
+      "exit_code": 0,
+      "duration_ms": 366,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git bisect --help",
+      "exit_code": 0,
+      "duration_ms": 374,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git diff --help",
+      "exit_code": 0,
+      "duration_ms": 377,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git grep --help",
+      "exit_code": 0,
+      "duration_ms": 387,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git log --help",
+      "exit_code": 0,
+      "duration_ms": 402,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git show --help",
+      "exit_code": 0,
+      "duration_ms": 387,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git status --help",
+      "exit_code": 0,
+      "duration_ms": 375,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git branch --help",
+      "exit_code": 0,
+      "duration_ms": 380,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git commit --help",
+      "exit_code": 0,
+      "duration_ms": 388,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git merge --help",
+      "exit_code": 0,
+      "duration_ms": 389,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git rebase --help",
+      "exit_code": 0,
+      "duration_ms": 388,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git reset --help",
+      "exit_code": 0,
+      "duration_ms": 382,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git switch --help",
+      "exit_code": 0,
+      "duration_ms": 379,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git tag --help",
+      "exit_code": 0,
+      "duration_ms": 375,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git fetch --help",
+      "exit_code": 0,
+      "duration_ms": 384,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git pull --help",
+      "exit_code": 0,
+      "duration_ms": 400,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git push --help",
+      "exit_code": 0,
+      "duration_ms": 394,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git diff --color",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git log --date",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git log --color",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git show --color",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --mixed",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --hard",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --keep",
+      "exit_code": 0,
+      "duration_ms": 105,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git reset --mixed",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --hard",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --keep",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --mixed",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --hard",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --merge",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --keep",
+      "exit_code": 0,
+      "duration_ms": 21,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git reset --mixed",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --hard",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --merge",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --keep",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --mixed",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --hard",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --keep",
+      "exit_code": 0,
+      "duration_ms": 24,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git reset --mixed",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --hard",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --merge",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --keep",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --mixed",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --hard",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --merge",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --keep",
+      "exit_code": 0,
+      "duration_ms": 21,
+      "ok": true,
+      "skipped": false
+    },
+    {
+      "command": "git reset --mixed",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --hard",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --merge",
+      "exit_code": 0,
+      "duration_ms": 0,
+      "ok": false,
+      "skipped": true,
+      "skip_reason": "[skipped: value-taking option \u2014 cannot probe without a value]"
+    },
+    {
+      "command": "git reset --keep",
+      "exit_code": 0,
+      "duration_ms": 20,
+      "ok": true,
+      "skipped": false
+    }
+  ],
+  "failures": []
+}

@@ -1,0 +1,78 @@
+CLI-Tester has fully converged to its README specification.
+
+## Verification by README section
+
+### Usage — IMPLEMENTED
+- `python cli_tester.py run <binary> [--timeout 10] [--dry-run] [-o report.json]` — works
+- `python cli_tester.py evolve <binary> [--rounds 5] [--target-dir ./src]` — works
+- `python cli_tester.py evolve <binary> --yolo` — works
+
+### Examples — IMPLEMENTED
+- `python cli_tester.py run git --dry-run` — works, shows skipped probes correctly
+- `python cli_tester.py run "npx anatoly"` — works (handles quoted binaries)
+- `python cli_tester.py evolve "python3 cli_tester.py" --rounds 10` — works
+
+### `run` — single probe pass — IMPLEMENTED
+1. Parse `<binary> --help` → extract commands & options (parser.py)
+2. Run every subcommand --help, then every boolean flag (runner.py)
+3. Local analysis of exit codes and failures (analyzer.py fallback_report)
+4. Generate JSON report + terminal output → saved to runs/ (report.py, cli_tester.py)
+
+### `evolve` — self-improving loop — IMPLEMENTED
+- Timestamped run directories with conversation logs and probe results
+- Each round runs as separate subprocess (evolve.py)
+- One improvement per round cycle (system prompt enforces this)
+- Git commit + push after each round with conventional commit format
+- Re-probe after fixes with cache clearing
+- CONVERGED marker detection
+
+### Files table — ALL PRESENT AND FUNCTIONAL
+- cli_tester.py — Entry point, CLI argument parsing
+- parser.py — Parse --help output into structured command tree
+- runner.py — Execute commands, capture stdout/stderr/exit codes
+- analyzer.py — Claude opus agent — adversarial analysis + code fixes
+- report.py — Generate and display reports
+- evolve.py — Evolution loop orchestrator (subprocess per round)
+- prompts/system.md — Agent system prompt (editable by opus)
+- runs/improvements.md — Improvement checklist (21 items, all checked)
+- runs/memory.md — Cumulative error log
+- agents/*.md — 8 agent personas (analyst, architect, dev, pm, qa, sm, ux-designer, quick-flow-solo-dev)
+- workflows/party-mode/ — Multi-agent discussion workflow with 3 steps
+
+### improvements.md — IMPLEMENTED
+- Checkbox format with [functional]/[performance] tags
+- [needs-package] flag support
+- One improvement per round cycle
+
+### memory.md — IMPLEMENTED
+- Cumulative error log, read at start, compacted at end
+
+### prompts/system.md — IMPLEMENTED
+- Editable by opus, loaded by analyzer.py with template variables
+
+### Convergence — IMPLEMENTED
+- Agent verifies zero errors, all checkboxes checked, README fulfilled
+- Writes CONVERGED file with justification
+
+### Party mode (post-convergence) — IMPLEMENTED
+- _run_party_mode in evolve.py loads agents from agents/*.md
+- Follows workflow from workflows/party-mode/
+- Produces README_proposal.md for operator review
+- Uses Claude agent SDK for multi-agent discussion
+
+### Git convention — IMPLEMENTED
+- COMMIT_MSG written by agent, used by orchestrator
+- Format: type(scope): description + body
+
+### --yolo mode — IMPLEMENTED
+- Controlled by yolo parameter, passed through evolve loop
+- System prompt blocks new packages unless --yolo is set
+
+### Best practices applied
+- Input validation (--timeout, --rounds reject zero/negative)
+- Error handling (I/O operations wrapped with OSError catches)
+- Cache management (lru_cache with clear_help_cache for re-probes)
+- Graceful degradation (rich optional, SDK optional for run mode)
+- Skipped probes properly tracked (value-taking options, positional args)
+- Help parser handles multi-line descriptions, short-only flags, equals-style values
+- Option section header detection uses generalized regex with false-positive protection
