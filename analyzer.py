@@ -147,7 +147,12 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
         except Exception as e:
             err_str = str(e)
             if "rate_limit" in err_str.lower():
-                print(f"  [sdk] rate limited — raising for retry...")
+                print(f"  [sdk] rate limit raw: {e!r}")
+                # Try to get more details from the exception
+                for attr in ("response", "body", "message", "args", "status_code", "headers"):
+                    if hasattr(e, attr):
+                        val = getattr(e, attr)
+                        print(f"  [sdk] rate limit {attr}: {val!r}")
                 raise RuntimeError("rate_limit") from e
             print(f"  [sdk] error: {e}")
             continue
