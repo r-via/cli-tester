@@ -1,0 +1,48 @@
+CLI-Tester has fully converged to its README specification.
+
+## Verification Summary
+
+### Zero Errors
+All CLI commands run without tracebacks, crashes, or unexpected behavior.
+Probe results: all commands pass (--help, run, evolve, all flags).
+
+### README Specification — 100% Implemented
+
+**Usage section:**
+- `run <binary> [--timeout N] [--dry-run] [-o file]` — fully working
+- `evolve <binary> [--rounds N] [--target-dir DIR] [--yolo]` — fully working
+
+**How it works — run:**
+- Parse --help → extract commands & options ✓ (parser.py with robust section/option parsing)
+- Run every subcommand --help, then every boolean flag ✓ (runner.py)
+- Local analysis of exit codes and failures ✓ (analyzer.py fallback_report)
+- Generate JSON report + terminal output → saved to runs/ ✓ (report.py)
+
+**How it works — evolve:**
+- Timestamped run directories ✓
+- Subprocess per round ✓
+- improvements.md convergence tracker ✓
+- memory.md cumulative error log ✓
+- prompts/system.md editable agent prompt ✓
+- Phase 1-3 convergence flow ✓
+- Phase 4 party mode post-convergence ✓ (loads agents/*.md, workflows/party-mode/, produces README_proposal.md)
+
+**Files table:** All 11 files/directories exist and serve their documented purpose.
+
+**Git convention:** Commit messages follow type(scope): description format.
+
+**--yolo mode:** Implemented — blocks needs-package improvements by default.
+
+**Without SDK:** run command falls back to local analysis; evolve requires SDK.
+
+### Best Practices Applied
+- Input validation: --timeout and --rounds reject zero/negative values
+- Error handling: I/O errors in file writes handled gracefully
+- Edge cases: dry-run probes marked as skipped, not passed
+- Performance: lru_cache on help parsing with proper cache clearing
+- Parser robustness: handles multi-line descriptions, =style options, short-only flags,
+  generalized section headers with false-positive protection
+- Report completeness: all probes included, timestamps, binary field, skipped tracking
+
+### All 21 Improvements Complete
+Every improvement in runs/improvements.md is checked off and verified working.
