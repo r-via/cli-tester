@@ -149,6 +149,14 @@ def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
                     commands.append(Command(name=name, description=desc))
 
         elif section == "options":
+            # Detect continuation lines: indented text that doesn't start
+            # with a dash is a wrapped description from the previous option.
+            # We check the *original* line (not stripped) for leading whitespace,
+            # and that the content doesn't begin with '-'.
+            if options and line != stripped and not stripped.startswith("-"):
+                # Continuation line — append to previous option's description
+                options[-1].description += " " + stripped
+                continue
             opt = _parse_option_line(stripped)
             if opt:
                 options.append(opt)
