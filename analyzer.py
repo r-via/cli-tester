@@ -182,10 +182,16 @@ believe the project has converged. Example:
 
 Do NOT converge prematurely. If in doubt, add more improvements instead.
 
-## Logging
-- Always run commands to verify your changes work.
+## Verification — MANDATORY for every action
+- BEFORE starting work, read the run directory ({run_dir or 'runs'}) to check previous
+  conversation logs, probe results, and any errors from earlier rounds. Learn from them.
+- After EVERY file you write or edit, read it back to confirm it was written correctly.
+- After EVERY command you run, check the full output for errors, warnings, or unexpected behavior.
+- After editing improvements.md, read it back to verify the checkbox was toggled correctly.
+- After writing any output file (reports, CONVERGED, etc.), read it back to confirm content.
+- If any verification fails, fix it immediately before moving on.
 - Show the full output of every command you run — do not truncate.
-- If a command fails, show the error and fix it before moving on.
+- Treat a failed verification the same as a console error: fix it before doing anything else.
 
 Work directly on the files. Do not ask questions. Do not explain — just fix and verify."""
 

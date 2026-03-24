@@ -1,0 +1,26 @@
+{
+  "target": "python3 cli_tester.py",
+  "summary": {
+    "commands_discovered": 2,
+    "total_probes": 5,
+    "passed": 4,
+    "failed": 1,
+    "timed_out": 0,
+    "success_rate": "80.0%"
+  },
+  "analysis": {
+    "total": 5,
+    "passed": 4,
+    "failed": 1,
+    "issues": [
+      "EXIT 2: python3 cli_tester.py evolve --yolo \u2014 usage: cli-tester evolve [-h] [--rounds ROUNDS] [--timeout TIMEOUT]\n                         [--target-dir TARGET_DIR] [--yolo]\n                         binary\ncli-tester evolve: error: the following "
+    ]
+  },
+  "failures": [
+    {
+      "command": "python3 cli_tester.py evolve --yolo",
+      "exit_code": 2,
+      "stderr": "usage: cli-tester evolve [-h] [--rounds ROUNDS] [--timeout TIMEOUT]\n                         [--target-dir TARGET_DIR] [--yolo]\n                         binary\ncli-tester evolve: error: the following arguments are required: binary\n"
+    }
+  ]
+}

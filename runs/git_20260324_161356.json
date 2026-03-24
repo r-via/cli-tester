@@ -1,0 +1,18 @@
+{
+  "target": "git",
+  "summary": {
+    "commands_discovered": 22,
+    "total_probes": 28,
+    "passed": 28,
+    "failed": 0,
+    "timed_out": 0,
+    "success_rate": "100.0%"
+  },
+  "analysis": {
+    "total": 28,
+    "passed": 28,
+    "failed": 0,
+    "issues": []
+  },
+  "failures": []
+}

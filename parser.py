@@ -77,6 +77,10 @@ def _run_help_cached(binary: str, subcommands: tuple[str, ...], timeout: int) ->
             text=True,
             timeout=timeout,
         )
+        # Exit code 127 = command not found, 126 = permission denied
+        # Don't treat shell error messages as valid help text
+        if result.returncode in (126, 127) and not result.stdout:
+            return None
         # Some CLIs print help to stderr
         return result.stdout or result.stderr or None
     except (subprocess.TimeoutExpired, FileNotFoundError, PermissionError):
@@ -179,28 +183,46 @@ def _has_required_positional(text: str) -> bool:
         usage: cli-tester run [-h] [--dry-run] binary   →  True (binary is required)
         usage: cli-tester evolve [-h] binary             →  True
         usage: cli-tester status [-h]                    →  False
+
+    Handles multi-line usage (argparse wraps long usage lines with indentation).
     """
-    for line in text.splitlines():
-        m = re.match(r"^[Uu]sage:\s*(.+)$", line.strip())
-        if m:
-            usage = m.group(1)
-            # Remove bracketed optional groups  [...]
-            cleaned = re.sub(r"\[.*?\]", "", usage)
-            # Remove the program/command name tokens (everything before the first space gap)
-            # What remains: positional arguments
-            tokens = cleaned.split()
-            # Skip the binary/subcommand tokens at the start — they match known command names
-            # Positional args are the trailing ALLCAPS or lowercase words
-            for tok in tokens:
-                # Skip if it looks like a binary path or subcommand name
-                if "/" in tok or tok.startswith("-"):
-                    continue
-                # Positional args in argparse are typically lowercase or ALLCAPS single words
-                if re.match(r"^[a-z_][a-z0-9_-]*$", tok) or re.match(r"^[A-Z][A-Z0-9_]*$", tok):
-                    # But skip common program name patterns
-                    if tok not in ("usage", ):
-                        return True
-            break
+    lines = text.splitlines()
+    usage = ""
+    collecting = False
+    for line in lines:
+        if not collecting:
+            m = re.match(r"^[Uu]sage:\s*(.+)$", line.strip())
+            if m:
+                usage = m.group(1)
+                collecting = True
+        else:
+            # Continuation lines are indented; stop at non-indented or blank
+            if line and (line[0] == " " or line[0] == "\t"):
+                usage += " " + line.strip()
+            else:
+                break
+
+    if not usage:
+        return False
+
+    # Remove bracketed optional groups  [...] and curly groups {...}
+    cleaned = re.sub(r"\[.*?\]", "", usage)
+    cleaned = re.sub(r"\{.*?\}", "", cleaned)
+    tokens = cleaned.split()
+
+    # Count leading "name" tokens in original usage (before first [ or {)
+    # These are the program/subcommand names, not positional args
+    pre_bracket = re.split(r"[\[\{]", usage)[0]
+    name_count = len(pre_bracket.split())
+
+    # Everything after the name tokens is a positional arg candidate
+    trailing = tokens[name_count:]
+    for tok in trailing:
+        if tok.startswith("-") or "/" in tok:
+            continue
+        # Positional args in argparse are lowercase words or ALLCAPS
+        if re.match(r"^[a-z_][a-z0-9_-]*$", tok) or re.match(r"^[A-Z][A-Z0-9_]*$", tok):
+            return True
     return False
 
 

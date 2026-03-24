@@ -1,0 +1,18 @@
+{
+  "target": "nonexistent_binary",
+  "summary": {
+    "commands_discovered": 0,
+    "total_probes": 1,
+    "passed": 1,
+    "failed": 0,
+    "timed_out": 0,
+    "success_rate": "100.0%"
+  },
+  "analysis": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "issues": []
+  },
+  "failures": []
+}
