@@ -4,4 +4,5 @@
 - [x] [functional] `print_report` should display the `timestamp` and `binary` fields in both rich and plain-text output so users see them in the terminal, not just in the JSON file
 - [x] [functional] `_save_run` and report file writes should handle I/O errors gracefully (e.g., permission denied, disk full) instead of crashing with an unhandled exception
 - [x] [functional] Validate `--timeout` to reject zero or negative values — negative values cause `subprocess.run` to raise `ValueError`, and zero causes immediate timeout on every command
-- [ ] [functional] Validate `--rounds` on `evolve` to reject zero or negative values — zero silently does nothing, negative values skip the loop entirely with no feedback
+- [x] [functional] Validate `--rounds` on `evolve` to reject zero or negative values — zero silently does nothing, negative values skip the loop entirely with no feedback
+- [ ] [functional] JSON report from `generate_report` should include all individual probe results (command, exit_code, duration_ms, ok) — currently only failures are recorded, making the report incomplete for auditing and re-analysis

@@ -78,6 +78,14 @@ def main():
         )
         sys.exit(2)
 
+    # Validate --rounds: must be a positive integer
+    if hasattr(args, "rounds") and args.rounds is not None and args.rounds <= 0:
+        print(
+            f"ERROR: --rounds must be a positive integer, got {args.rounds}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
     if args.command == "run":
         # 1. Parse --help
         tree = parse_help(args.binary, timeout=args.timeout)
