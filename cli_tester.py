@@ -90,9 +90,15 @@ def main():
 
         # Always save to runs/ (and to custom path if -o given)
         runs_path = _save_run(report, args.binary, args.output)
-        print(f"\nReport saved to {runs_path}")
+        if runs_path:
+            print(f"\nReport saved to {runs_path}")
         if args.output:
-            print(f"Also saved to {args.output}")
+            try:
+                custom_out = Path(args.output)
+                if custom_out.exists():
+                    print(f"Also saved to {args.output}")
+            except OSError:
+                pass  # already warned in _save_run
 
     elif args.command == "evolve":
         evolve_loop(
@@ -114,22 +120,34 @@ def main():
         )
 
 
-def _save_run(report: dict, binary: str, custom_path: str | None = None) -> Path:
-    """Save report JSON to runs/ directory, and also to custom path if given."""
-    # Always save to runs/
-    RUNS_DIR.mkdir(exist_ok=True)
+def _save_run(report: dict, binary: str, custom_path: str | None = None) -> Path | None:
+    """Save report JSON to runs/ directory, and also to custom path if given.
+
+    Returns the path to the saved report, or None if saving failed.
+    I/O errors are caught and reported to stderr instead of crashing.
+    """
     safe_name = binary.replace("/", "_").replace(" ", "_")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     runs_out = RUNS_DIR / f"{safe_name}_{timestamp}.json"
-    with open(runs_out, "w") as f:
-        json.dump(report, f, indent=2)
+
+    # Always save to runs/
+    try:
+        RUNS_DIR.mkdir(exist_ok=True)
+        with open(runs_out, "w") as f:
+            json.dump(report, f, indent=2)
+    except OSError as e:
+        print(f"WARNING: Could not save report to {runs_out}: {e}", file=sys.stderr)
+        runs_out = None
 
     # Additionally save to custom path if -o was specified
     if custom_path:
         custom_out = Path(custom_path)
-        custom_out.parent.mkdir(parents=True, exist_ok=True)
-        with open(custom_out, "w") as f:
-            json.dump(report, f, indent=2)
+        try:
+            custom_out.parent.mkdir(parents=True, exist_ok=True)
+            with open(custom_out, "w") as f:
+                json.dump(report, f, indent=2)
+        except OSError as e:
+            print(f"WARNING: Could not save report to {custom_out}: {e}", file=sys.stderr)
 
     return runs_out
 

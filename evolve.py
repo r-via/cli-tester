@@ -187,13 +187,16 @@ def run_single_round(
 
         # Save probe results in run directory
         probe_path = rdir / f"probe_round_{round_num}.txt"
-        with open(probe_path, "w") as f:
-            f.write(f"Round {round_num} post-fix probe: {ok}/{total} passed\n")
-            for r in results2:
-                status = "OK" if r.ok else f"FAIL[{r.exit_code}]"
-                f.write(f"  [{status}] {r.command}\n")
-                if not r.ok and r.stderr:
-                    f.write(f"    {r.stderr[:300]}\n")
+        try:
+            with open(probe_path, "w") as f:
+                f.write(f"Round {round_num} post-fix probe: {ok}/{total} passed\n")
+                for r in results2:
+                    status = "OK" if r.ok else f"FAIL[{r.exit_code}]"
+                    f.write(f"  [{status}] {r.command}\n")
+                    if not r.ok and r.stderr:
+                        f.write(f"    {r.stderr[:300]}\n")
+        except OSError as e:
+            print(f"WARNING: Could not save probe results to {probe_path}: {e}", file=sys.stderr)
 
 
 def _resolve_src_dir(binary: str, target_dir: str | None) -> Path:

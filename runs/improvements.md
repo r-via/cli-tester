@@ -2,4 +2,5 @@
 - [x] [functional] `run` command with `-o` flag should still save to `runs/` directory in addition to the custom path (README says reports are always saved to `runs/`)
 - [x] [functional] JSON report from `generate_report` should include a `timestamp` field and the full `binary` invocation for traceability and to distinguish reports across runs
 - [x] [functional] `print_report` should display the `timestamp` and `binary` fields in both rich and plain-text output so users see them in the terminal, not just in the JSON file
-- [ ] [functional] `_save_run` and report file writes should handle I/O errors gracefully (e.g., permission denied, disk full) instead of crashing with an unhandled exception
+- [x] [functional] `_save_run` and report file writes should handle I/O errors gracefully (e.g., permission denied, disk full) instead of crashing with an unhandled exception
+- [ ] [functional] Validate `--timeout` to reject zero or negative values — negative values cause `subprocess.run` to raise `ValueError`, and zero causes immediate timeout on every command
