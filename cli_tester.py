@@ -26,39 +26,49 @@ from evolve import evolve_loop, run_single_round
 RUNS_DIR = Path(__file__).parent / "runs"
 
 
+def _parse_round_args():
+    """Parse _round arguments directly (internal command, hidden from --help)."""
+    import argparse as _ap
+    p = _ap.ArgumentParser(prog="cli-tester _round")
+    p.add_argument("binary")
+    p.add_argument("--round-num", type=int, required=True)
+    p.add_argument("--timeout", type=int, default=10)
+    p.add_argument("--target-dir", default=None)
+    p.add_argument("--run-dir", default=None)
+    p.add_argument("--yolo", action="store_true")
+    args = p.parse_args(sys.argv[2:])
+    args.command = "_round"
+    return args
+
+
 def main():
-    ap = argparse.ArgumentParser(
-        prog="cli-tester",
-        description="Probe any CLI: parse --help, run every command, analyze results.",
-    )
-    ap.add_argument("--version", action="version", version="cli-tester 0.1.0")
-    sub = ap.add_subparsers(dest="command", required=True)
+    # Handle internal _round command before argparse to avoid leaking it in --help
+    if len(sys.argv) > 1 and sys.argv[1] == "_round":
+        args = _parse_round_args()
+    else:
+        ap = argparse.ArgumentParser(
+            prog="cli-tester",
+            description="Probe any CLI: parse --help, run every command, analyze results.",
+        )
+        ap.add_argument("--version", action="version", version="cli-tester 0.1.0")
+        sub = ap.add_subparsers(dest="command", required=True)
 
-    # --- run ---
-    run_p = sub.add_parser("run", help="Single probe pass")
-    run_p.add_argument("binary", help="CLI binary to test")
-    run_p.add_argument("--timeout", type=int, default=10, help="Timeout per command (seconds)")
-    run_p.add_argument("--dry-run", action="store_true", help="Parse only, don't execute")
-    run_p.add_argument("-o", "--output", default=None, help="Save JSON report to file")
+        # --- run ---
+        run_p = sub.add_parser("run", help="Single probe pass")
+        run_p.add_argument("binary", help="CLI binary to test")
+        run_p.add_argument("--timeout", type=int, default=10, help="Timeout per command (seconds)")
+        run_p.add_argument("--dry-run", action="store_true", help="Parse only, don't execute")
+        run_p.add_argument("-o", "--output", default=None, help="Save JSON report to file")
 
-    # --- evolve ---
-    ev_p = sub.add_parser("evolve", help="Self-improving loop until convergence")
-    ev_p.add_argument("binary", help="CLI binary to test")
-    ev_p.add_argument("--rounds", type=int, default=5, help="Max evolution rounds")
-    ev_p.add_argument("--timeout", type=int, default=10, help="Timeout per command (seconds)")
-    ev_p.add_argument("--target-dir", default=None, help="Source directory to patch")
-    ev_p.add_argument("--yolo", action="store_true", help="Allow adding new packages/binaries")
+        # --- evolve ---
+        ev_p = sub.add_parser("evolve", help="Self-improving loop until convergence")
+        ev_p.add_argument("binary", help="CLI binary to test")
+        ev_p.add_argument("--rounds", type=int, default=5, help="Max evolution rounds")
+        ev_p.add_argument("--timeout", type=int, default=10, help="Timeout per command (seconds)")
+        ev_p.add_argument("--target-dir", default=None, help="Source directory to patch")
+        ev_p.add_argument("--yolo", action="store_true", help="Allow adding new packages/binaries")
 
-    # --- _round (internal, called by evolve as subprocess) ---
-    rnd_p = sub.add_parser("_round", help=argparse.SUPPRESS)
-    rnd_p.add_argument("binary")
-    rnd_p.add_argument("--round-num", type=int, required=True)
-    rnd_p.add_argument("--timeout", type=int, default=10)
-    rnd_p.add_argument("--target-dir", default=None)
-    rnd_p.add_argument("--run-dir", default=None)
-    rnd_p.add_argument("--yolo", action="store_true")
-
-    args = ap.parse_args()
+        args = ap.parse_args()
 
     if args.command == "run":
         # 1. Parse --help
