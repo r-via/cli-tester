@@ -145,6 +145,13 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
         except StopAsyncIteration:
             break
         except Exception as e:
+            err_str = str(e)
+            if "rate_limit" in err_str.lower():
+                print(f"  [sdk] rate limited — waiting 15s...")
+                import time
+                time.sleep(15)
+                # Stream is dead after this, break and let retry handle it
+                break
             print(f"  [sdk] error: {e}")
             continue
 
@@ -170,6 +177,7 @@ def analyze_and_fix(
     binary: str,
     project_dir: Path,
     yolo: bool = False,
+    max_retries: int = 3,
 ) -> None:
     """Run Claude opus agent to analyze results and fix code directly."""
     try:
@@ -180,10 +188,19 @@ def analyze_and_fix(
 
     prompt = build_analysis_prompt(tree, results, binary, project_dir, yolo=yolo)
 
-    try:
-        asyncio.run(run_claude_agent(prompt, project_dir))
-    except Exception as e:
-        print(f"WARN: Claude Code agent failed ({e})")
+    for attempt in range(1, max_retries + 1):
+        try:
+            asyncio.run(run_claude_agent(prompt, project_dir))
+            return  # success
+        except Exception as e:
+            if "rate_limit" in str(e).lower() and attempt < max_retries:
+                wait = 10 * attempt
+                print(f"  [sdk] rate limited — waiting {wait}s (attempt {attempt}/{max_retries})...")
+                import time
+                time.sleep(wait)
+            else:
+                print(f"WARN: Claude Code agent failed ({e})")
+                return
 
 
 def fallback_report(results: list[CommandResult]) -> dict:
