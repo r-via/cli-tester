@@ -134,6 +134,7 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
         model=MODEL,
         cwd=str(project_dir),
         disallowed_tools=["Task", "Agent", "WebSearch", "WebFetch"],
+        include_partial_messages=True,
     )
 
     turn = 0
@@ -146,15 +147,8 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
             break
         except Exception as e:
             err_str = str(e)
-            if "unknown message type" in err_str.lower():
-                # SDK can't parse this event type (e.g. rate_limit_event)
-                # It's not a real error — just an event the SDK doesn't know about
-                # The stream may still be alive, keep going
-                print(f"  [sdk] unknown event (ignoring): {err_str}")
-                continue
-            if "rate_limit" in err_str.lower():
-                print(f"  [sdk] rate limited — raising for retry...")
-                raise RuntimeError("rate_limit") from e
+            print(f"  [sdk] error: {err_str}")
+            continue
             print(f"  [sdk] error: {e}")
             continue
 
@@ -216,7 +210,7 @@ def analyze_and_fix(
     binary: str,
     project_dir: Path,
     yolo: bool = False,
-    max_retries: int = 3,
+    max_retries: int = 5,
 ) -> None:
     """Run Claude opus agent to analyze results and fix code directly."""
     try:
@@ -233,7 +227,7 @@ def analyze_and_fix(
             return  # success
         except Exception as e:
             if "rate_limit" in str(e).lower() and attempt < max_retries:
-                wait = 30 * attempt
+                wait = 60 * attempt
                 print(f"  [sdk] rate limited — waiting {wait}s (attempt {attempt}/{max_retries})...")
                 import time
                 time.sleep(wait)
