@@ -156,19 +156,55 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
             continue
 
         msg_type = type(message).__name__
+        turn += 1
+
         if isinstance(message, (AssistantMessage, ResultMessage)):
             for block in message.content:
+                block_type = type(block).__name__
                 if hasattr(block, "text") and block.text.strip():
                     print(f"  [opus] {block.text[:300]}")
                 elif hasattr(block, "name"):
-                    # Tool use block
-                    print(f"  [opus] tool: {block.name}")
+                    # Tool use block — show tool name + input summary
+                    tool_name = block.name
+                    tool_input = ""
+                    if hasattr(block, "input") and block.input:
+                        inp = block.input
+                        if isinstance(inp, dict):
+                            # Show key details depending on tool
+                            if "command" in inp:
+                                tool_input = f" → {inp['command'][:100]}"
+                            elif "pattern" in inp:
+                                tool_input = f" → {inp['pattern']}"
+                            elif "file_path" in inp:
+                                tool_input = f" → {inp['file_path']}"
+                            elif "content" in inp:
+                                tool_input = f" → ({len(inp['content'])} chars)"
+                            else:
+                                keys = list(inp.keys())[:3]
+                                tool_input = f" → {keys}"
+                        else:
+                            tool_input = f" → {str(inp)[:80]}"
+                    print(f"  [opus] {tool_name}{tool_input}")
+                elif block_type == "ToolResultBlock":
+                    # Tool result — show truncated output
+                    if hasattr(block, "content") and block.content:
+                        content_str = str(block.content)[:150]
+                        print(f"  [result] {content_str}")
+                else:
+                    print(f"  [opus] {block_type}: {str(block)[:150]}")
         else:
-            turn += 1
-            if turn <= 3:
-                print(f"  [sdk] {msg_type}")
+            # System/User messages from SDK
+            if hasattr(message, "content") and message.content:
+                content = str(message.content)[:200] if not isinstance(message.content, str) else message.content[:200]
+                print(f"  [{msg_type}] {content}")
+            elif hasattr(message, "data") and message.data:
+                # SystemMessage init etc
+                subtype = message.data.get("subtype", "") if isinstance(message.data, dict) else ""
+                print(f"  [{msg_type}] {subtype}")
+            else:
+                print(f"  [{msg_type}]")
 
-    print(f"  [opus] agent finished ({turn} events)")
+    print(f"  [opus] agent done ({turn} messages)")
 
 
 def analyze_and_fix(
