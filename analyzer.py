@@ -147,11 +147,8 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
         except Exception as e:
             err_str = str(e)
             if "rate_limit" in err_str.lower():
-                print(f"  [sdk] rate limited — waiting 15s...")
-                import time
-                time.sleep(15)
-                # Stream is dead after this, break and let retry handle it
-                break
+                print(f"  [sdk] rate limited — raising for retry...")
+                raise RuntimeError("rate_limit") from e
             print(f"  [sdk] error: {e}")
             continue
 
@@ -230,7 +227,7 @@ def analyze_and_fix(
             return  # success
         except Exception as e:
             if "rate_limit" in str(e).lower() and attempt < max_retries:
-                wait = 10 * attempt
+                wait = 30 * attempt
                 print(f"  [sdk] rate limited — waiting {wait}s (attempt {attempt}/{max_retries})...")
                 import time
                 time.sleep(wait)
