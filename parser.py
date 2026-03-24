@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import subprocess
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 
 @dataclass
@@ -58,7 +59,13 @@ def parse_help(binary: str, timeout: int = 10) -> HelpTree | None:
 
 
 def _run_help(binary: str, *subcommands: str, timeout: int = 10) -> str | None:
-    """Execute a --help command and return stdout+stderr."""
+    """Execute a --help command and return stdout+stderr (cached)."""
+    return _run_help_cached(binary, subcommands, timeout)
+
+
+@lru_cache(maxsize=256)
+def _run_help_cached(binary: str, subcommands: tuple[str, ...], timeout: int) -> str | None:
+    """Cached inner helper — lru_cache requires hashable args."""
     cmd = f"{binary} {' '.join(subcommands)} --help".strip()
     try:
         result = subprocess.run(
