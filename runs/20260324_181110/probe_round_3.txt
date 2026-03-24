@@ -1,0 +1,4 @@
+Round 3 post-fix probe: 3/3 passed
+  [OK] python3 cli_tester.py --help
+  [OK] python3 cli_tester.py run --help
+  [OK] python3 cli_tester.py evolve --help

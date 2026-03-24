@@ -54,12 +54,24 @@ def run_all_commands(
                     full = f"{tree.binary} {cmd.name} {opt.flag}"
                     results.append(_run(full, timeout))
 
-    # 4. Global boolean flags
-    if not dry_run:
-        for opt in tree.global_options:
-            if not opt.takes_value and opt.flag not in ("--help", "--version"):
-                full = f"{tree.binary} {opt.flag}"
-                results.append(_run(full, timeout))
+    # 4. Global flags
+    for opt in tree.global_options:
+        if opt.flag in ("--help", "--version"):
+            continue
+        if opt.takes_value:
+            # Value-taking options can't be safely probed without guessing values;
+            # report them as skipped so the report reflects coverage awareness.
+            full = f"{tree.binary} {opt.flag}"
+            results.append(_make_result(
+                full, 0, "[skipped: value-taking option — cannot probe without a value]", "", 0,
+                skipped=True,
+            ))
+        elif dry_run:
+            full = f"{tree.binary} {opt.flag}"
+            results.append(_make_result(full, 0, "[dry-run: skipped]", "", 0, skipped=True))
+        else:
+            full = f"{tree.binary} {opt.flag}"
+            results.append(_run(full, timeout))
 
     return results
 
