@@ -1,4 +1,5 @@
 - [x] [functional] Hide internal `_round` subcommand from --help output — it leaks with `==SUPPRESS==` due to Python 3.12 argparse bug
 - [x] [functional] `run` command with `-o` flag should still save to `runs/` directory in addition to the custom path (README says reports are always saved to `runs/`)
 - [x] [functional] JSON report from `generate_report` should include a `timestamp` field and the full `binary` invocation for traceability and to distinguish reports across runs
-- [ ] [functional] `print_report` should display the `timestamp` and `binary` fields in both rich and plain-text output so users see them in the terminal, not just in the JSON file
+- [x] [functional] `print_report` should display the `timestamp` and `binary` fields in both rich and plain-text output so users see them in the terminal, not just in the JSON file
+- [ ] [functional] `_save_run` and report file writes should handle I/O errors gracefully (e.g., permission denied, disk full) instead of crashing with an unhandled exception

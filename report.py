@@ -106,6 +106,10 @@ def print_report(report: dict) -> None:
         table = Table(show_header=False, box=None, padding=(0, 2))
         table.add_column("Key", style="bold cyan")
         table.add_column("Value")
+        if report.get("timestamp"):
+            table.add_row("Timestamp", report["timestamp"])
+        if report.get("binary"):
+            table.add_row("Binary", report["binary"])
         table.add_row("Commands discovered", str(s["commands_discovered"]))
         table.add_row("Total probes", str(s["total_probes"]))
         table.add_row("Passed", f"[green]{s['passed']}[/green]")
@@ -131,6 +135,10 @@ def print_report(report: dict) -> None:
         print("=" * 60)
         print(f"  CLI PROBE REPORT: {report['target']}")
         print("=" * 60)
+        if report.get("timestamp"):
+            print(f"  Timestamp           : {report['timestamp']}")
+        if report.get("binary"):
+            print(f"  Binary              : {report['binary']}")
         print(f"  Commands discovered : {s['commands_discovered']}")
         print(f"  Total probes        : {s['total_probes']}")
         print(f"  Passed              : {s['passed']}")
