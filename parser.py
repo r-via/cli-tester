@@ -163,26 +163,62 @@ def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
 
 
 def _parse_option_line(line: str) -> Option | None:
-    """Parse a single option line like '  -v, --verbose   Enable verbose output'."""
-    # Pattern: optional short flag, long flag, optional value placeholder, description
-    # Value placeholder can be <VAL>, [VAL], or bare UPPERCASE_WORD
+    """Parse a single option line like '  -v, --verbose   Enable verbose output'.
+
+    Supports:
+    - Long flag only:          --verbose  Description
+    - Short + long:            -v, --verbose  Description
+    - Short only:              -v  Description
+    - Multi-letter short:      -vv, --very-verbose  Description
+    - Value placeholders:      --timeout <SEC>  Description
+    """
+    # Value placeholder pattern: <VAL>, [VAL], or bare UPPERCASE_WORD
+    _val = r"(?:\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*))"
+
+    # Try 1: short + long flag  (e.g. "-v, --verbose", "-vv, --very-verbose")
     m = re.match(
-        r"^(-\w)?,?\s*(--[\w-]+)(?:\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*))?\s{2,}(.+)$",
+        rf"^(-\w+),?\s*(--[\w-]+){_val}?\s{{2,}}(.+)$",
         line,
     )
-    if not m:
-        return None
+    if m:
+        has_value = bool(re.search(r"--[\w-]+\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*)\s{2,}", line))
+        return Option(
+            flag=m.group(2),
+            alias=m.group(1),
+            description=m.group(3).strip(),
+            takes_value=has_value,
+        )
 
-    # Detect value-taking flags: bracketed placeholders or bare UPPERCASE word
-    # immediately after the flag and before the 2+ space description gap
-    has_value = bool(re.search(r"--[\w-]+\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*)\s{2,}", line))
-
-    return Option(
-        flag=m.group(2),
-        alias=m.group(1) or None,
-        description=m.group(3).strip(),
-        takes_value=has_value,
+    # Try 2: long flag only  (e.g. "--verbose")
+    m = re.match(
+        rf"^(--[\w-]+){_val}?\s{{2,}}(.+)$",
+        line,
     )
+    if m:
+        has_value = bool(re.search(r"--[\w-]+\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*)\s{2,}", line))
+        return Option(
+            flag=m.group(1),
+            alias=None,
+            description=m.group(2).strip(),
+            takes_value=has_value,
+        )
+
+    # Try 3: short flag only  (e.g. "-v", "-vv")
+    m = re.match(
+        rf"^(-\w+){_val}?\s{{2,}}(.+)$",
+        line,
+    )
+    if m:
+        short = m.group(1)
+        has_value = bool(re.search(r"-\w+\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*)\s{2,}", line))
+        return Option(
+            flag=short,
+            alias=None,
+            description=m.group(2).strip(),
+            takes_value=has_value,
+        )
+
+    return None
 
 
 def _has_required_positional(
