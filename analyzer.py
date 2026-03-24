@@ -133,6 +133,7 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
         permission_mode="bypassPermissions",
         model=MODEL,
         cwd=str(project_dir),
+        disallowed_tools=["Task", "Agent", "WebSearch", "WebFetch"],
     )
 
     turn = 0
