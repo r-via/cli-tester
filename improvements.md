@@ -5,4 +5,4 @@
 - [x] [functional] Fix option parser regex to handle flags without short alias (e.g. --timeout TIMEOUT)
 - [x] [functional] Fix option parser to detect value-taking flags with argparse-style `--flag VALUE` (no angle/square brackets)
 - [x] [performance] Cache parsed help output to avoid re-running --help for already-seen subcommands
-- [ ] [functional] [needs-package] Add colorized terminal output with rich
+- [x] [functional] [needs-package] Add colorized terminal output with rich

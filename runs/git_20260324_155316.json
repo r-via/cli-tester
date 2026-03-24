@@ -1,0 +1,129 @@
+{
+  "target": "git",
+  "summary": {
+    "commands_discovered": 22,
+    "total_probes": 23,
+    "passed": 1,
+    "failed": 22,
+    "timed_out": 0,
+    "success_rate": "4.3%"
+  },
+  "analysis": {
+    "total": 23,
+    "passed": 1,
+    "failed": 22,
+    "issues": []
+  },
+  "failures": [
+    {
+      "command": "git clone --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git init --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git add --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git mv --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git restore --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git rm --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git bisect --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git diff --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git grep --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git log --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git show --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git status --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git branch --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git commit --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git merge --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git rebase --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git reset --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git switch --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git tag --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git fetch --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git pull --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "git push --help",
+      "exit_code": -1,
+      "stderr": ""
+    }
+  ]
+}

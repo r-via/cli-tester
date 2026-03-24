@@ -13,6 +13,16 @@ from pathlib import Path
 
 from analyzer import count_checked, count_unchecked, get_current_improvement
 
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.text import Text
+    _RICH = True
+    _console = Console()
+except ImportError:
+    _RICH = False
+    _console = None
+
 
 def evolve_loop(
     binary: str,
@@ -33,14 +43,27 @@ def evolve_loop(
         checked = count_checked(improvements_path)
         unchecked = count_unchecked(improvements_path)
 
-        print(f"\n{'#' * 60}")
-        print(f"  EVOLUTION ROUND {round_num}/{max_rounds}")
-        if current:
-            print(f"  TARGET: {current}")
-            print(f"  PROGRESS: {checked}/{checked + unchecked} improvements done")
+        if _RICH:
+            content = Text()
+            content.append(f"EVOLUTION ROUND {round_num}/{max_rounds}\n", style="bold white")
+            if current:
+                content.append(f"TARGET: ", style="bold")
+                content.append(f"{current}\n", style="cyan")
+                content.append(f"PROGRESS: ", style="bold")
+                content.append(f"{checked}/{checked + unchecked} improvements done", style="green")
+            else:
+                content.append("TARGET: (initial analysis)", style="yellow")
+            _console.print()
+            _console.print(Panel(content, border_style="magenta", title="[bold magenta]evolve[/bold magenta]"))
         else:
-            print(f"  TARGET: (initial analysis)")
-        print(f"{'#' * 60}")
+            print(f"\n{'#' * 60}")
+            print(f"  EVOLUTION ROUND {round_num}/{max_rounds}")
+            if current:
+                print(f"  TARGET: {current}")
+                print(f"  PROGRESS: {checked}/{checked + unchecked} improvements done")
+            else:
+                print(f"  TARGET: (initial analysis)")
+            print(f"{'#' * 60}")
 
         # Launch round as subprocess — picks up any code changes from previous round
         cmd = [
@@ -58,21 +81,33 @@ def evolve_loop(
         result = subprocess.run(cmd, cwd=str(src_dir))
 
         if result.returncode != 0:
-            print(f"\n  Round {round_num} failed (exit {result.returncode})")
+            if _RICH:
+                _console.print(f"\n  [bold red]Round {round_num} failed[/bold red] (exit {result.returncode})")
+            else:
+                print(f"\n  Round {round_num} failed (exit {result.returncode})")
 
         # Re-read improvements after subprocess ran (code may have changed)
         unchecked = count_unchecked(improvements_path)
         checked = count_checked(improvements_path)
 
-        print(f"\n  Progress: {checked} done, {unchecked} remaining")
+        if _RICH:
+            _console.print(f"\n  Progress: [green]{checked} done[/green], [yellow]{unchecked} remaining[/yellow]")
+        else:
+            print(f"\n  Progress: {checked} done, {unchecked} remaining")
 
         if unchecked == 0 and checked > 0:
-            print(f"\n*** CONVERGED at round {round_num} — all {checked} improvements done ***")
+            if _RICH:
+                _console.print(f"\n[bold green]*** CONVERGED at round {round_num} — all {checked} improvements done ***[/bold green]")
+            else:
+                print(f"\n*** CONVERGED at round {round_num} — all {checked} improvements done ***")
             return
 
     unchecked = count_unchecked(improvements_path)
     checked = count_checked(improvements_path)
-    print(f"\n*** Max rounds ({max_rounds}) reached — {checked} done, {unchecked} remaining ***")
+    if _RICH:
+        _console.print(f"\n[bold yellow]*** Max rounds ({max_rounds}) reached — {checked} done, {unchecked} remaining ***[/bold yellow]")
+    else:
+        print(f"\n*** Max rounds ({max_rounds}) reached — {checked} done, {unchecked} remaining ***")
 
 
 def run_single_round(
