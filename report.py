@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from runner import CommandResult
 
 try:
@@ -78,6 +79,8 @@ def generate_report(tree, results: list[CommandResult], analysis: dict) -> dict:
     timed_out = [r for r in results if r.timed_out]
 
     return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "binary": tree.binary,
         "target": tree.binary,
         "summary": {
             "commands_discovered": len(tree.commands),
