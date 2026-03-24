@@ -88,6 +88,13 @@ def build_analysis_prompt(
     improvements = improvements_path.read_text() if improvements_path.is_file() else None
     current = get_current_improvement(improvements_path)
 
+    # Load system prompt template
+    prompt_path = project_dir / "prompts" / "system.md"
+    if prompt_path.is_file():
+        system_prompt = prompt_path.read_text()
+    else:
+        system_prompt = "You are an adversarial CLI tester working in {project_dir}."
+
     # Build probe results summary
     probe_lines = []
     for r in results:
@@ -104,101 +111,50 @@ CONSTRAINT: Do NOT add new binaries or pip packages. If an improvement requires
 a new dependency, add it to improvements.md with the tag [needs-package] and
 leave it unchecked. The operator must re-run with --yolo to allow it."""
 
+    rdir = str(run_dir or "runs")
+
+    # Interpolate template variables
+    system_prompt = system_prompt.format(
+        project_dir=project_dir,
+        run_dir=rdir,
+        yolo_note=yolo_note,
+    )
+
+    # Build context sections
     readme_section = f"## README (specification)\n{readme}" if readme else "## README\n(no README found)"
     improvements_section = f"## improvements.md (current state)\n{improvements}" if improvements else "## improvements.md\n(does not exist yet — you must create it)"
-    target_section = f"Current target improvement: {current}" if current else "No improvements yet — create initial improvements.md based on your analysis."
+    target_section = f"Current target improvement: {current}" if current else "No improvements yet — create initial runs/improvements.md based on your analysis."
 
-    # Include previous round's post-fix probe results if available
+    # Load memory
+    memory_path = project_dir / "runs" / "memory.md"
+    memory_section = ""
+    if memory_path.is_file():
+        memory = memory_path.read_text().strip()
+        if memory:
+            memory_section = f"\n## Memory (errors from previous rounds — do NOT repeat these)\n{memory}\n"
+
+    # Previous round probe results
     prev_probe = ""
-    prev_probe_path = project_dir / "runs" / f"probe_round_{max(1, _get_round_from_probe(project_dir))}.txt"
-    if prev_probe_path.is_file():
-        prev_probe = f"\n## Previous round post-fix probe results\n{prev_probe_path.read_text()}\n"
+    if run_dir:
+        for f in sorted(Path(run_dir).glob("probe_round_*.txt"), reverse=True):
+            prev_probe = f"\n## Previous round post-fix probe results\n{f.read_text()}\n"
+            break
 
     return f"""\
-You are an adversarial CLI tester working in {project_dir}.
+{system_prompt}
 
 {readme_section}
 
 {improvements_section}
 
 {target_section}
+{memory_section}
 {prev_probe}
 ## Probe results (every command from --help was executed BEFORE your fixes)
 These are the results from running every discovered command. After you make fixes,
 the orchestrator will re-probe automatically to verify. You do NOT need to run the
 full probe yourself — but you SHOULD run individual commands to verify specific fixes.
-{probe_summary}
-
-## CRITICAL RULE: errors first, improvements second
-
-**Phase 1 — ERRORS (mandatory)**:
-Before ANY improvement work, you MUST:
-1. Run the CLI yourself: execute the binary with --help, then try key commands.
-2. Check for Python errors, tracebacks, import errors, runtime crashes.
-3. If ANY error exists in the console output (tracebacks, exceptions, exit codes != 0
-   that indicate bugs), your ONLY job is to fix those errors. Do NOT work on improvements.
-4. After fixing, re-run the command to verify the error is gone.
-5. Repeat until there are ZERO errors.
-
-Only when all commands run cleanly (no tracebacks, no crashes) may you proceed to Phase 2.
-
-**Phase 2 — IMPROVEMENTS (only when zero errors)**:
-
-IMPORTANT: Only ONE improvement per turn. Do not batch multiple improvements.
-
-1. If runs/improvements.md does not exist, create it with a SINGLE improvement — the
-   most impactful one you identified. Do NOT list multiple items upfront.
-   Format:
-   - [ ] [functional] description
-   - [ ] [performance] description
-   If it needs a new package: - [ ] [functional] [needs-package] description
-
-2. If improvements.md exists and has an unchecked [ ] item, implement ONLY that one.
-   Read the source code, understand the issue, and fix it by editing the files directly.
-
-3. After fixing, verify the fix works by running the relevant command.
-
-4. Only check off the improvement (change "- [ ]" to "- [x]") AFTER verifying it works.
-
-5. Do NOT touch already checked [x] items.
-
-6. After checking off the improvement, add exactly ONE new unchecked improvement
-   as the next item — the most impactful remaining issue you see.
-   Review the code against the README:
-   - Does the CLI do everything the README promises?
-   - Are there best practices missing? (error handling, input validation, edge cases)
-   - Are there performance optimizations possible?
-   - Is the code clean, maintainable, well-structured?
-   If you see no further improvement needed, do NOT add one — proceed to Phase 3.
-{yolo_note}
-
-**Phase 3 — CONVERGENCE (only when everything is truly done)**:
-You MUST only declare convergence when ALL of the following are true:
-- Zero errors in console output
-- All improvements.md checkboxes are checked
-- The README specification is 100% fulfilled — every feature, command, and behavior it describes works
-- Best practices are applied (error handling, input validation, edge cases)
-- Performance is optimized where reasonable
-- You cannot identify any further meaningful improvement
-
-When you are certain, write a file `{run_dir or 'runs'}/CONVERGED` with a short summary of why you
-believe the project has converged. Example:
-  "README 100% fulfilled. All 12 improvements done. 100% probe pass rate. No further improvements identified."
-
-Do NOT converge prematurely. If in doubt, add more improvements instead.
-
-## Verification — MANDATORY for every action
-- BEFORE starting work, read the run directory ({run_dir or 'runs'}) to check previous
-  conversation logs, probe results, and any errors from earlier rounds. Learn from them.
-- After EVERY file you write or edit, read it back to confirm it was written correctly.
-- After EVERY command you run, check the full output for errors, warnings, or unexpected behavior.
-- After editing improvements.md, read it back to verify the checkbox was toggled correctly.
-- After writing any output file (reports, CONVERGED, etc.), read it back to confirm content.
-- If any verification fails, fix it immediately before moving on.
-- Show the full output of every command you run — do not truncate.
-- Treat a failed verification the same as a console error: fix it before doing anything else.
-
-Work directly on the files. Do not ask questions. Do not explain — just fix and verify."""
+{probe_summary}"""
 
 
 def _patch_sdk_parser():

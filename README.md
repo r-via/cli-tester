@@ -47,7 +47,8 @@ Each `evolve` session creates a timestamped run directory. Each round runs as a 
 
 ```
 runs/
-├── improvements.md                    # shared across sessions
+├── improvements.md                    # shared — one improvement added per round
+├── memory.md                          # shared — cumulative error log, compacted each round
 ├── 20260324_160000/                   # session 1
 │   ├── conversation_loop_1.md         # full opus conversation log
 │   ├── conversation_loop_2.md
@@ -56,21 +57,27 @@ runs/
 │   └── CONVERGED                      # written by opus when done
 └── 20260324_170000/                   # session 2
     └── ...
+
+prompts/
+└── system.md                          # agent system prompt (editable by opus)
 ```
 
 **Each round — one improvement at a time:**
 
 ```
 1. Orchestrator probes all commands → results
-2. Opus receives: README + improvements.md + probe results + previous probe
+2. Opus receives: README + improvements.md + memory.md + probe results + system prompt
 3. Opus reads run directory (previous conversations, probe results) for context
-4. Phase 1 — ERRORS: fix any crashes/tracebacks (mandatory, blocks improvements)
-5. Phase 2 — IMPROVEMENT: implement the single unchecked item, verify, check it off
+4. Opus reads memory.md to avoid repeating past mistakes
+5. Phase 1 — ERRORS: fix any crashes/tracebacks (mandatory, blocks improvements)
+6. Phase 2 — IMPROVEMENT: implement the single unchecked item, verify, check it off
    Then add exactly one new improvement (the most impactful next issue)
-6. Phase 3 — CONVERGENCE: only when README 100% fulfilled + best practices applied
-7. Opus verifies every file it wrote/edited by reading it back
-8. Git commit + push
-9. Orchestrator re-probes to verify → saves probe_round_N.txt
+   May also improve prompts in prompts/ if beneficial
+7. Phase 3 — CONVERGENCE: only when README 100% fulfilled + best practices applied
+8. Opus logs any new errors to memory.md, then compacts it (remove duplicates/stale entries)
+9. Opus verifies every file it wrote/edited by reading it back
+10. Git commit + push
+11. Orchestrator re-probes to verify → saves probe_round_N.txt
 10. Next round starts as fresh subprocess (reloaded code)
 ```
 
@@ -83,6 +90,18 @@ Generated and maintained by opus in `runs/improvements.md`. One improvement adde
 
 Each round: implement the unchecked item → check it off → add one new item (if any).
 When no further improvement is needed, proceed to convergence.
+
+### `memory.md` — cumulative error log
+
+Shared across all sessions in `runs/memory.md`. Each agent:
+- Reads it at the start to avoid repeating past mistakes
+- Appends any new errors encountered during the round
+- Compacts it at the end: removes duplicates, removes stale entries for fixed code
+
+### `prompts/system.md` — editable agent prompt
+
+The system prompt is loaded from `prompts/system.md`. Opus can improve it during evolution
+if it identifies ways to make the agent more effective or less error-prone.
 
 ### Convergence
 
@@ -109,6 +128,9 @@ By default, improvements that require new packages are blocked. Use `--yolo` to 
 | `analyzer.py` | Claude opus agent — adversarial analysis + code fixes |
 | `report.py` | Generate and display reports |
 | `evolve.py` | Evolution loop orchestrator (subprocess per round) |
+| `prompts/system.md` | Agent system prompt (editable by opus) |
+| `runs/improvements.md` | Improvement checklist (one per round) |
+| `runs/memory.md` | Cumulative error log (compacted each round) |
 
 ## Requirements
 
