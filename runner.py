@@ -38,13 +38,16 @@ def run_all_commands(
     for cmd in tree.commands:
         full = f"{tree.binary} {cmd.name} --help"
         if dry_run:
-            results.append(_make_result(full, -1, "[dry-run]", "", 0))
+            results.append(_make_result(full, 0, "[dry-run: skipped]", "", 0))
             continue
         results.append(_run(full, timeout))
 
     # 3. Boolean flags on subcommands (skip value-taking flags — we'd need to guess values)
+    #    Also skip subcommands that require positional args — the flag alone will fail
     if not dry_run:
         for cmd in tree.commands:
+            if cmd.has_required_positional:
+                continue
             for opt in cmd.options:
                 if not opt.takes_value:
                     full = f"{tree.binary} {cmd.name} {opt.flag}"

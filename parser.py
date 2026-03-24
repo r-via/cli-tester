@@ -29,6 +29,7 @@ class Command:
     description: str = ""
     options: list[Option] = field(default_factory=list)
     subcommands: list[Command] = field(default_factory=list)
+    has_required_positional: bool = False
 
 
 @dataclass
@@ -53,6 +54,7 @@ def parse_help(binary: str, timeout: int = 10) -> HelpTree | None:
         sub_help = _run_help(binary, cmd.name, timeout=timeout)
         if sub_help:
             cmd.options = _parse_options_section(sub_help)
+            cmd.has_required_positional = _has_required_positional(sub_help)
             _, _ = _parse_sections(sub_help)  # could recurse deeper
 
     return tree
@@ -161,6 +163,39 @@ def _parse_option_line(line: str) -> Option | None:
         description=m.group(3).strip(),
         takes_value=has_value,
     )
+
+
+def _has_required_positional(text: str) -> bool:
+    """Detect if a subcommand's help text shows required positional arguments.
+
+    Looks at the usage line for non-optional positional args (words that are not
+    in brackets and not flags).  E.g.:
+        usage: cli-tester run [-h] [--dry-run] binary   →  True (binary is required)
+        usage: cli-tester evolve [-h] binary             →  True
+        usage: cli-tester status [-h]                    →  False
+    """
+    for line in text.splitlines():
+        m = re.match(r"^[Uu]sage:\s*(.+)$", line.strip())
+        if m:
+            usage = m.group(1)
+            # Remove bracketed optional groups  [...]
+            cleaned = re.sub(r"\[.*?\]", "", usage)
+            # Remove the program/command name tokens (everything before the first space gap)
+            # What remains: positional arguments
+            tokens = cleaned.split()
+            # Skip the binary/subcommand tokens at the start — they match known command names
+            # Positional args are the trailing ALLCAPS or lowercase words
+            for tok in tokens:
+                # Skip if it looks like a binary path or subcommand name
+                if "/" in tok or tok.startswith("-"):
+                    continue
+                # Positional args in argparse are typically lowercase or ALLCAPS single words
+                if re.match(r"^[a-z_][a-z0-9_-]*$", tok) or re.match(r"^[A-Z][A-Z0-9_]*$", tok):
+                    # But skip common program name patterns
+                    if tok not in ("usage", ):
+                        return True
+            break
+    return False
 
 
 def _parse_options_section(text: str) -> list[Option]:

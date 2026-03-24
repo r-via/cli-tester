@@ -1,0 +1,18 @@
+{
+  "target": "python3 cli_tester.py",
+  "summary": {
+    "commands_discovered": 3,
+    "total_probes": 4,
+    "passed": 4,
+    "failed": 0,
+    "timed_out": 0,
+    "success_rate": "100.0%"
+  },
+  "analysis": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "issues": []
+  },
+  "failures": []
+}
