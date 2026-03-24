@@ -137,7 +137,7 @@ def run_single_round(
     run_dir: str | None = None,
 ) -> None:
     """Execute a single evolution round (called as subprocess)."""
-    from parser import parse_help
+    from parser import parse_help, clear_help_cache
     from runner import run_all_commands
     from analyzer import analyze_and_fix, get_current_improvement
     from report import print_probe_summary
@@ -173,8 +173,9 @@ def run_single_round(
     else:
         _git_commit(src_dir, f"evolve: round {round_num}")
 
-    # 4. Re-probe after fixes
+    # 4. Re-probe after fixes — clear cache so we get fresh help output
     print(f"\n  [verify] Re-probing after fixes...")
+    clear_help_cache()
     tree2 = parse_help(binary, timeout=timeout)
     if tree2:
         results2 = run_all_commands(tree2, timeout=timeout)

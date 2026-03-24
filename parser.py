@@ -65,6 +65,11 @@ def parse_help(binary: str, timeout: int = 10) -> HelpTree | None:
     return tree
 
 
+def clear_help_cache() -> None:
+    """Clear the help output cache so re-probes get fresh results."""
+    _run_help_cached.cache_clear()
+
+
 def _run_help(binary: str, *subcommands: str, timeout: int = 10) -> str | None:
     """Execute a --help command and return stdout+stderr (cached)."""
     return _run_help_cached(binary, subcommands, timeout)
