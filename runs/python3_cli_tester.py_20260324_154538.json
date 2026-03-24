@@ -1,0 +1,29 @@
+{
+  "target": "python3 cli_tester.py",
+  "summary": {
+    "commands_discovered": 2,
+    "total_probes": 3,
+    "passed": 1,
+    "failed": 2,
+    "timed_out": 0,
+    "success_rate": "33.3%"
+  },
+  "analysis": {
+    "total": 3,
+    "passed": 1,
+    "failed": 2,
+    "issues": []
+  },
+  "failures": [
+    {
+      "command": "python3 cli_tester.py run --help",
+      "exit_code": -1,
+      "stderr": ""
+    },
+    {
+      "command": "python3 cli_tester.py evolve --help",
+      "exit_code": -1,
+      "stderr": ""
+    }
+  ]
+}

@@ -95,7 +95,7 @@ def _run(command: str, timeout: int) -> CommandResult:
             command=command,
             exit_code=127,
             stdout="",
-            stderr=f"Command not found: {parts[0]}",
+            stderr=f"Command not found: {command.split()[0]}",
             duration_ms=0,
             timed_out=False,
         )
