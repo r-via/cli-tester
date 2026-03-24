@@ -166,12 +166,18 @@ def run_single_round(
     print(f"\n  [agent] Claude opus working...")
     analyze_and_fix(tree, results, binary, src_dir, yolo=yolo, round_num=round_num, run_dir=rdir)
 
-    # 3. Git commit
-    new_current = get_current_improvement(improvements_path)
-    if current and new_current != current:
-        _git_commit(src_dir, f"evolve: ✓ {current}")
+    # 3. Git commit — use agent's commit message if available
+    commit_msg_path = rdir / "COMMIT_MSG"
+    if commit_msg_path.is_file():
+        msg = commit_msg_path.read_text().strip()
+        commit_msg_path.unlink()
     else:
-        _git_commit(src_dir, f"evolve: round {round_num}")
+        new_current = get_current_improvement(improvements_path)
+        if current and new_current != current:
+            msg = f"feat(evolve): ✓ {current}"
+        else:
+            msg = f"chore(evolve): round {round_num}"
+    _git_commit(src_dir, msg)
 
     # 4. Re-probe after fixes — clear cache so we get fresh help output
     print(f"\n  [verify] Re-probing after fixes...")

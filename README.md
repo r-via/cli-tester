@@ -187,6 +187,48 @@ This creates a **continuous evolution cycle**:
 4. `evolve` converges to the new README
 5. Repeat
 
+### Git convention
+
+Every commit + push must follow a professional, human-readable convention:
+
+```
+<type>(<scope>): <short description>
+
+<body — what changed and why>
+```
+
+**Types:**
+- `fix` — bug fix
+- `feat` — new feature or improvement
+- `refactor` — code restructure without behavior change
+- `perf` — performance improvement
+- `docs` — documentation only
+- `test` — test additions or fixes
+- `chore` — tooling, config, dependencies
+
+**Scope:** the file or module affected (e.g. `parser`, `runner`, `evolve`, `prompts`)
+
+**Examples:**
+```
+fix(parser): handle argparse flags without short alias
+
+The regex now matches --timeout TIMEOUT (bare uppercase value placeholder)
+in addition to --flag <val> and --flag [val] formats.
+
+feat(evolve): add party mode post-convergence brainstorming
+
+After full convergence, all agents from agents/*.md are loaded for a
+multi-agent discussion following workflows/party-mode/. They produce
+a README_proposal.md for operator review.
+
+perf(parser): cache help output with lru_cache
+
+Repeated parse_help() calls for the same binary+subcommand now return
+cached results instead of spawning a new subprocess. Cache size: 256.
+```
+
+The evolution agent must follow this convention for every commit it creates.
+
 ### `--yolo` mode
 
 By default, improvements that require new packages are blocked. Use `--yolo` to allow them.

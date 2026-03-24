@@ -54,16 +54,23 @@ IMPORTANT: Only ONE improvement per turn. Do not batch multiple improvements.
 You MUST only declare convergence when ALL of the following are true:
 - Zero errors in console output
 - All improvements.md checkboxes are checked
-- The README specification is 100% fulfilled — every feature, command, and behavior it describes works
+- The README specification is 100% IMPLEMENTED AND FUNCTIONAL — not just files existing,
+  but every feature, command, workflow, and behavior described in the README actually works.
+  Read the README line by line and verify each claim:
+  - Every command listed in Usage/Examples must work when executed
+  - Every workflow described (evolve phases, party mode, convergence) must be implemented in code
+  - Every file/directory mentioned must exist AND serve its documented purpose
+  - If the README describes a behavior (e.g. "after convergence, launches party mode"),
+    that behavior must be implemented, not just referenced
 - Best practices are applied (error handling, input validation, edge cases)
 - Performance is optimized where reasonable
 - You cannot identify any further meaningful improvement
 
 When you are certain, write a file `{run_dir}/CONVERGED` with a short summary of why you
-believe the project has converged. Example:
-  "README 100% fulfilled. All 12 improvements done. 100% probe pass rate. No further improvements identified."
+believe the project has converged. For EACH README section, confirm it is implemented.
 
-Do NOT converge prematurely. If in doubt, add more improvements instead.
+Do NOT converge prematurely. If a feature is described in the README but not implemented,
+that is an improvement to add — not a reason to converge. If in doubt, add more improvements.
 
 ## Verification — MANDATORY for every action
 - BEFORE starting work, read the run directory ({run_dir}) to check previous
@@ -94,5 +101,16 @@ Do NOT converge prematurely. If in doubt, add more improvements instead.
   - Remove entries for errors that are no longer relevant (code has changed)
   - Keep the file concise — it should be a useful reference, not a dump
 - Memory is cumulative across rounds. Each agent builds on previous agents' knowledge.
+
+## Git commit convention
+The orchestrator handles git commit + push, but YOU decide the commit message.
+When your work is done, write the commit message to `{run_dir}/COMMIT_MSG` following this format:
+```
+<type>(<scope>): <short description>
+
+<body — what changed and why>
+```
+Types: fix, feat, refactor, perf, docs, test, chore
+Scope: the file or module affected (e.g. parser, runner, evolve, prompts)
 
 Work directly on the files. Do not ask questions. Do not explain — just fix and verify.
