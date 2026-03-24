@@ -88,9 +88,11 @@ def main():
         print_report(report)
         print_probe_summary(results)
 
-        # Always save to runs/
-        output_path = _save_run(report, args.binary, args.output)
-        print(f"\nReport saved to {output_path}")
+        # Always save to runs/ (and to custom path if -o given)
+        runs_path = _save_run(report, args.binary, args.output)
+        print(f"\nReport saved to {runs_path}")
+        if args.output:
+            print(f"Also saved to {args.output}")
 
     elif args.command == "evolve":
         evolve_loop(
@@ -113,19 +115,23 @@ def main():
 
 
 def _save_run(report: dict, binary: str, custom_path: str | None = None) -> Path:
-    """Save report JSON to runs/ directory (or custom path)."""
-    if custom_path:
-        out = Path(custom_path)
-    else:
-        RUNS_DIR.mkdir(exist_ok=True)
-        safe_name = binary.replace("/", "_").replace(" ", "_")
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        out = RUNS_DIR / f"{safe_name}_{timestamp}.json"
-
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with open(out, "w") as f:
+    """Save report JSON to runs/ directory, and also to custom path if given."""
+    # Always save to runs/
+    RUNS_DIR.mkdir(exist_ok=True)
+    safe_name = binary.replace("/", "_").replace(" ", "_")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    runs_out = RUNS_DIR / f"{safe_name}_{timestamp}.json"
+    with open(runs_out, "w") as f:
         json.dump(report, f, indent=2)
-    return out
+
+    # Additionally save to custom path if -o was specified
+    if custom_path:
+        custom_out = Path(custom_path)
+        custom_out.parent.mkdir(parents=True, exist_ok=True)
+        with open(custom_out, "w") as f:
+            json.dump(report, f, indent=2)
+
+    return runs_out
 
 
 if __name__ == "__main__":

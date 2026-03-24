@@ -1,2 +1,3 @@
 - [x] [functional] Hide internal `_round` subcommand from --help output — it leaks with `==SUPPRESS==` due to Python 3.12 argparse bug
-- [ ] [functional] `run` command with `-o` flag should still save to `runs/` directory in addition to the custom path (README says reports are always saved to `runs/`)
+- [x] [functional] `run` command with `-o` flag should still save to `runs/` directory in addition to the custom path (README says reports are always saved to `runs/`)
+- [ ] [functional] JSON report from `generate_report` should include a `timestamp` field and the full `binary` invocation for traceability and to distinguish reports across runs
