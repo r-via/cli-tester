@@ -179,9 +179,10 @@ def _parse_option_line(line: str) -> Option | None:
     - Short only:              -v  Description
     - Multi-letter short:      -vv, --very-verbose  Description
     - Value placeholders:      --timeout <SEC>  Description
+    - Equals-style values:     --timeout=SECONDS  Description
     """
-    # Value placeholder pattern: <VAL>, [VAL], or bare UPPERCASE_WORD
-    _val = r"(?:\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*))"
+    # Value placeholder pattern: =VAL, <VAL>, [VAL], or bare UPPERCASE_WORD
+    _val = r"(?:(?:=\S+|\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*)))"
 
     # Try 1: short + long flag  (e.g. "-v, --verbose", "-vv, --very-verbose")
     m = re.match(
@@ -189,7 +190,9 @@ def _parse_option_line(line: str) -> Option | None:
         line,
     )
     if m:
-        has_value = bool(re.search(r"--[\w-]+\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*)\s{2,}", line))
+        has_value = bool(re.search(
+            r"--[\w-]+(?:=\S+|\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*))\s{2,}", line,
+        ))
         return Option(
             flag=m.group(2),
             alias=m.group(1),
@@ -203,7 +206,9 @@ def _parse_option_line(line: str) -> Option | None:
         line,
     )
     if m:
-        has_value = bool(re.search(r"--[\w-]+\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*)\s{2,}", line))
+        has_value = bool(re.search(
+            r"--[\w-]+(?:=\S+|\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*))\s{2,}", line,
+        ))
         return Option(
             flag=m.group(1),
             alias=None,
@@ -218,7 +223,9 @@ def _parse_option_line(line: str) -> Option | None:
     )
     if m:
         short = m.group(1)
-        has_value = bool(re.search(r"-\w+\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*)\s{2,}", line))
+        has_value = bool(re.search(
+            r"-\w+(?:=\S+|\s+(?:[<\[]\S+[>\]]|[A-Z][A-Z0-9_]*))\s{2,}", line,
+        ))
         return Option(
             flag=short,
             alias=None,
