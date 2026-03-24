@@ -70,6 +70,14 @@ def main():
 
         args = ap.parse_args()
 
+    # Validate --timeout: must be a positive integer
+    if hasattr(args, "timeout") and args.timeout is not None and args.timeout <= 0:
+        print(
+            f"ERROR: --timeout must be a positive integer, got {args.timeout}",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
     if args.command == "run":
         # 1. Parse --help
         tree = parse_help(args.binary, timeout=args.timeout)
