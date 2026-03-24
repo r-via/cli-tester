@@ -97,6 +97,63 @@ def _run_help_cached(binary: str, subcommands: tuple[str, ...], timeout: int) ->
         return None
 
 
+def _is_option_section_header(line: str) -> bool:
+    """Return True if *line* looks like a section header for options/flags/arguments.
+
+    Matches headers like:
+        Options:
+        Global Options
+        Authentication Options:
+        Build Flags
+        Required Arguments:
+        General Options:
+
+    Rejects prose lines like:
+        For more options:
+        See available flags:
+        Use --help for more options
+        There are many arguments
+
+    Rules:
+    - Must be 1–4 words (section headers are short)
+    - Must end with "options", "arguments", or "flags" (the keyword)
+    - Must NOT start with a common article, preposition, or verb that signals prose
+    - Must NOT be "positional arguments" (that's a commands section)
+    """
+    # Normalize: strip trailing colon and whitespace
+    normalized = re.sub(r"\s*:?\s*$", "", line).strip()
+    if not normalized:
+        return False
+
+    # Must end with one of the keywords (case-insensitive)
+    if not re.search(r"(?:options|arguments|flags)$", normalized, re.I):
+        return False
+
+    # Reject "positional arguments"
+    if re.match(r"^positional\s+arguments$", normalized, re.I):
+        return False
+
+    words = normalized.split()
+
+    # Section headers are short: 1–4 words
+    if len(words) > 4:
+        return False
+
+    # Reject lines starting with prose words (articles, prepositions, verbs, etc.)
+    _PROSE_STARTERS = {
+        "a", "an", "the", "for", "see", "use", "with", "without",
+        "from", "to", "in", "on", "at", "by", "of", "and", "or",
+        "if", "is", "are", "has", "have", "set", "get", "try",
+        "there", "these", "those", "some", "all", "no", "not",
+        "about", "after", "before", "between", "into", "show",
+        "display", "list", "print", "run", "check", "specify",
+    }
+    if words[0].lower() in _PROSE_STARTERS:
+        return False
+
+    return True
+
+
 def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
     """Extract commands and options from help text."""
     commands: list[Command] = []
@@ -117,7 +174,7 @@ def _parse_sections(text: str) -> tuple[list[Command], list[Option]]:
                 if name:
                     commands.append(Command(name=name, description=""))
             continue
-        if re.match(r"^(?:.*\s+)?(?:options|arguments|flags)\s*:?\s*$", stripped, re.I) and not re.match(r"^positional\s+arguments\s*:?\s*$", stripped, re.I):
+        if _is_option_section_header(stripped):
             section = "options"
             continue
         # Git-style section headers: "start a working area (see also: ...)"
