@@ -135,6 +135,7 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
         cwd=str(project_dir),
     )
 
+    turn = 0
     stream = query(prompt=prompt, options=options)
     ait = stream.__aiter__()
     while True:
@@ -142,14 +143,24 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
             message = await ait.__anext__()
         except StopAsyncIteration:
             break
-        except Exception:
+        except Exception as e:
+            print(f"  [sdk] error: {e}")
             continue
 
-        # Print assistant text for visibility
+        msg_type = type(message).__name__
         if isinstance(message, (AssistantMessage, ResultMessage)):
             for block in message.content:
                 if hasattr(block, "text") and block.text.strip():
-                    print(f"  [opus] {block.text[:200]}")
+                    print(f"  [opus] {block.text[:300]}")
+                elif hasattr(block, "name"):
+                    # Tool use block
+                    print(f"  [opus] tool: {block.name}")
+        else:
+            turn += 1
+            if turn <= 3:
+                print(f"  [sdk] {msg_type}")
+
+    print(f"  [opus] agent finished ({turn} events)")
 
 
 def analyze_and_fix(
