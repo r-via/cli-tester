@@ -141,8 +141,8 @@ def _patch_sdk_parser():
         pass
 
 
-async def run_claude_agent(prompt: str, project_dir: Path) -> None:
-    """Run Claude Code agent with the given prompt. It acts directly on files."""
+async def run_claude_agent(prompt: str, project_dir: Path, round_num: int = 1) -> None:
+    """Run Claude Code agent with the given prompt. Logs conversation to runs/."""
     _patch_sdk_parser()
     from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, ResultMessage
 
@@ -155,7 +155,20 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
         include_partial_messages=True,
     )
 
+    # Prepare conversation log file
+    runs_dir = project_dir / "runs"
+    runs_dir.mkdir(exist_ok=True)
+    log_path = runs_dir / f"conversation_loop_{round_num}.md"
+    log = open(log_path, "w")
+    log.write(f"# Evolution Round {round_num}\n\n")
+
+    def _log(line: str, console: bool = False):
+        log.write(line + "\n")
+        if console:
+            print(line)
+
     turn = 0
+    tools_used = 0
     stream = query(prompt=prompt, options=options)
     ait = stream.__aiter__()
     while True:
@@ -164,8 +177,7 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
         except StopAsyncIteration:
             break
         except Exception as e:
-            err_str = str(e)
-            print(f"  [sdk] error: {err_str}")
+            _log(f"> SDK error: {e}")
             continue
 
         if message is None:
@@ -174,57 +186,57 @@ async def run_claude_agent(prompt: str, project_dir: Path) -> None:
         msg_type = type(message).__name__
         turn += 1
 
-        # Skip noisy StreamEvents
         if msg_type == "StreamEvent":
             continue
 
         if isinstance(message, (AssistantMessage, ResultMessage)):
             for block in message.content:
                 block_type = type(block).__name__
-                if hasattr(block, "text") and block.text.strip():
-                    print(f"  [opus] {block.text[:300]}")
+
+                if hasattr(block, "thinking"):
+                    _log(f"\n### Thinking\n\n{block.thinking}\n")
+
+                elif hasattr(block, "text") and block.text.strip():
+                    _log(f"\n{block.text}\n", console=True)
+
                 elif hasattr(block, "name"):
-                    # Tool use block — show tool name + input summary
+                    tools_used += 1
                     tool_name = block.name
                     tool_input = ""
                     if hasattr(block, "input") and block.input:
                         inp = block.input
                         if isinstance(inp, dict):
-                            # Show key details depending on tool
                             if "command" in inp:
-                                tool_input = f" → {inp['command'][:100]}"
+                                tool_input = inp["command"]
                             elif "pattern" in inp:
-                                tool_input = f" → {inp['pattern']}"
+                                tool_input = inp["pattern"]
                             elif "file_path" in inp:
-                                tool_input = f" → {inp['file_path']}"
+                                tool_input = inp["file_path"]
+                            elif "old_string" in inp:
+                                tool_input = f'{inp.get("file_path", "?")} (edit)'
                             elif "content" in inp:
-                                tool_input = f" → ({len(inp['content'])} chars)"
-                            else:
-                                keys = list(inp.keys())[:3]
-                                tool_input = f" → {keys}"
+                                tool_input = f'({len(inp["content"])} chars)'
                         else:
-                            tool_input = f" → {str(inp)[:80]}"
-                    print(f"  [opus] {tool_name}{tool_input}")
-                elif block_type == "ToolResultBlock":
-                    # Tool result — show truncated output
-                    if hasattr(block, "content") and block.content:
-                        content_str = str(block.content)[:150]
-                        print(f"  [result] {content_str}")
-                else:
-                    print(f"  [opus] {block_type}: {str(block)[:150]}")
-        else:
-            # System/User messages from SDK
-            if hasattr(message, "content") and message.content:
-                content = str(message.content)[:200] if not isinstance(message.content, str) else message.content[:200]
-                print(f"  [{msg_type}] {content}")
-            elif hasattr(message, "data") and message.data:
-                # SystemMessage init etc
-                subtype = message.data.get("subtype", "") if isinstance(message.data, dict) else ""
-                print(f"  [{msg_type}] {subtype}")
-            else:
-                print(f"  [{msg_type}]")
+                            tool_input = str(inp)[:100]
+                    _log(f"\n**{tool_name}**: `{tool_input}`\n")
+                    print(f"  [opus] {tool_name} → {tool_input[:80]}")
 
-    print(f"  [opus] agent done ({turn} messages)")
+                elif block_type == "ToolResultBlock":
+                    content_str = str(block.content)[:500] if hasattr(block, "content") and block.content else ""
+                    is_error = getattr(block, "is_error", False)
+                    if is_error:
+                        _log(f"\n> ❌ Error:\n> {content_str}\n")
+                    else:
+                        _log(f"\n```\n{content_str}\n```\n")
+        else:
+            if msg_type == "RateLimitEvent":
+                _log(f"\n> ⏳ Rate limited\n")
+            elif msg_type == "SystemMessage":
+                _log(f"\n---\n*Session initialized*\n---\n")
+
+    _log(f"\n---\n\n**Done**: {turn} messages, {tools_used} tool calls\n")
+    log.close()
+    print(f"  [opus] done ({tools_used} tool calls) → {log_path}")
 
 
 def analyze_and_fix(
@@ -234,6 +246,7 @@ def analyze_and_fix(
     project_dir: Path,
     yolo: bool = False,
     max_retries: int = 5,
+    round_num: int = 1,
 ) -> None:
     """Run Claude opus agent to analyze results and fix code directly."""
     try:
@@ -246,7 +259,7 @@ def analyze_and_fix(
 
     for attempt in range(1, max_retries + 1):
         try:
-            asyncio.run(run_claude_agent(prompt, project_dir))
+            asyncio.run(run_claude_agent(prompt, project_dir, round_num=round_num))
             return  # success
         except Exception as e:
             if "rate_limit" in str(e).lower() and attempt < max_retries:

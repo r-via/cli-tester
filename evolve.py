@@ -81,7 +81,7 @@ def evolve_loop(
 
         # 2. Let Claude opus agent analyze and fix
         print(f"\n  [agent] Claude opus analyzing and fixing...")
-        analyze_and_fix(tree, results, binary, src_dir, yolo=yolo)
+        analyze_and_fix(tree, results, binary, src_dir, yolo=yolo, round_num=round_num)
 
         # 3. Git commit whatever the agent changed
         new_current = get_current_improvement(improvements_path)
