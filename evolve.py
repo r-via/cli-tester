@@ -1,30 +1,17 @@
 """Self-improving evolution loop.
 
-Each round:
-1. Probe the CLI (run every command)
-2. Claude opus agent analyzes (README + improvements.md) and edits code directly
-3. Git commit the changes
-4. Check if current improvement was completed
-5. Loop until all improvements checked AND probes pass
+Each round runs as a **separate subprocess** so that code changes
+made by opus in round N are picked up by round N+1.
 """
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 
-from parser import parse_help
-from runner import run_all_commands
-from analyzer import (
-    analyze_and_fix,
-    count_checked,
-    count_unchecked,
-    get_current_improvement,
-    fallback_report,
-)
-from report import print_probe_summary
+from analyzer import count_checked, count_unchecked, get_current_improvement
 
 
 def evolve_loop(
@@ -34,23 +21,8 @@ def evolve_loop(
     target_dir: str | None = None,
     yolo: bool = False,
 ) -> None:
-    """Run probe → agent fix → git commit loop until convergence."""
-    try:
-        from claude_agent_sdk import query
-    except ImportError:
-        print("ERROR: pip install claude-code-sdk", file=sys.stderr)
-        sys.exit(1)
-
-    # Resolve source directory
-    if target_dir:
-        src_dir = Path(target_dir)
-    else:
-        src_dir = _find_source_dir(binary)
-
-    if not src_dir or not src_dir.is_dir():
-        print(f"ERROR: Could not find source directory. Use --target-dir.", file=sys.stderr)
-        sys.exit(1)
-
+    """Orchestrate evolution by launching each round as a subprocess."""
+    src_dir = _resolve_src_dir(binary, target_dir)
     improvements_path = src_dir / "improvements.md"
 
     # Ensure git
@@ -68,57 +40,91 @@ def evolve_loop(
             print(f"  PROGRESS: {checked}/{checked + unchecked} improvements done")
         else:
             print(f"  TARGET: (initial analysis)")
-        print(f"{'#' * 60}\n")
+        print(f"{'#' * 60}")
 
-        # 1. Probe
-        tree = parse_help(binary, timeout=timeout)
-        if not tree:
-            print(f"ERROR: Cannot parse --help for '{binary}'", file=sys.stderr)
-            sys.exit(1)
+        # Launch round as subprocess — picks up any code changes from previous round
+        cmd = [
+            sys.executable, str(Path(__file__).parent / "cli_tester.py"),
+            "_round",
+            binary,
+            "--round-num", str(round_num),
+            "--timeout", str(timeout),
+        ]
+        if target_dir:
+            cmd += ["--target-dir", target_dir]
+        if yolo:
+            cmd += ["--yolo"]
 
-        results = run_all_commands(tree, timeout=timeout)
-        print_probe_summary(results)
+        result = subprocess.run(cmd, cwd=str(src_dir))
 
-        # 2. Let Claude opus agent analyze and fix
-        print(f"\n  [agent] Claude opus analyzing and fixing...")
-        analyze_and_fix(tree, results, binary, src_dir, yolo=yolo, round_num=round_num)
+        if result.returncode != 0:
+            print(f"\n  Round {round_num} failed (exit {result.returncode})")
 
-        # 3. Git commit whatever the agent changed
-        new_current = get_current_improvement(improvements_path)
-        if current and new_current != current:
-            # The agent checked off the current improvement
-            _git_commit(src_dir, f"evolve: ✓ {current}")
-        else:
-            _git_commit(src_dir, f"evolve: round {round_num}")
-
-        # 4. Check convergence
+        # Re-read improvements after subprocess ran (code may have changed)
         unchecked = count_unchecked(improvements_path)
         checked = count_checked(improvements_path)
 
+        print(f"\n  Progress: {checked} done, {unchecked} remaining")
+
         if unchecked == 0 and checked > 0:
-            # All done — do a final probe to verify
-            print(f"\n  All {checked} improvements checked. Final verification probe...")
-            tree = parse_help(binary, timeout=timeout)
-            if tree:
-                final_results = run_all_commands(tree, timeout=timeout)
-                ok = sum(1 for r in final_results if r.ok)
-                total = len(final_results)
-                print_probe_summary(final_results)
-                if ok == total:
-                    print(f"\n*** CONVERGED at round {round_num} ***")
-                    print(f"  {checked} improvements completed, {ok}/{total} probes pass")
-                    return
-                else:
-                    print(f"\n  {total - ok} probes still failing — continuing...")
+            print(f"\n*** CONVERGED at round {round_num} — all {checked} improvements done ***")
+            return
 
     unchecked = count_unchecked(improvements_path)
     checked = count_checked(improvements_path)
-    print(f"\n*** Max rounds ({max_rounds}) reached ***")
-    print(f"  {checked} done, {unchecked} remaining")
+    print(f"\n*** Max rounds ({max_rounds}) reached — {checked} done, {unchecked} remaining ***")
+
+
+def run_single_round(
+    binary: str,
+    round_num: int,
+    timeout: int = 10,
+    target_dir: str | None = None,
+    yolo: bool = False,
+) -> None:
+    """Execute a single evolution round (called as subprocess)."""
+    from parser import parse_help
+    from runner import run_all_commands
+    from analyzer import analyze_and_fix, get_current_improvement
+    from report import print_probe_summary
+
+    src_dir = _resolve_src_dir(binary, target_dir)
+    improvements_path = src_dir / "improvements.md"
+
+    # 1. Probe
+    tree = parse_help(binary, timeout=timeout)
+    if not tree:
+        print(f"ERROR: Cannot parse --help for '{binary}'", file=sys.stderr)
+        sys.exit(1)
+
+    results = run_all_commands(tree, timeout=timeout)
+    print_probe_summary(results)
+
+    # 2. Let Claude opus agent analyze and fix
+    current = get_current_improvement(improvements_path)
+    print(f"\n  [agent] Claude opus working...")
+    analyze_and_fix(tree, results, binary, src_dir, yolo=yolo, round_num=round_num)
+
+    # 3. Git commit
+    new_current = get_current_improvement(improvements_path)
+    if current and new_current != current:
+        _git_commit(src_dir, f"evolve: ✓ {current}")
+    else:
+        _git_commit(src_dir, f"evolve: round {round_num}")
+
+
+def _resolve_src_dir(binary: str, target_dir: str | None) -> Path:
+    if target_dir:
+        src_dir = Path(target_dir)
+    else:
+        src_dir = _find_source_dir(binary)
+    if not src_dir or not src_dir.is_dir():
+        print(f"ERROR: Could not find source directory. Use --target-dir.", file=sys.stderr)
+        sys.exit(1)
+    return src_dir
 
 
 def _find_source_dir(binary: str) -> Path | None:
-    """Try to find where the binary's source lives."""
     p = Path(binary)
     if p.exists():
         return p.parent
@@ -137,7 +143,6 @@ def _find_source_dir(binary: str) -> Path | None:
 
 
 def _ensure_git(src_dir: Path) -> None:
-    """Ensure the source directory is a git repo with a clean state."""
     result = subprocess.run(
         ["git", "rev-parse", "--git-dir"],
         cwd=src_dir, capture_output=True, text=True,
@@ -151,26 +156,19 @@ def _ensure_git(src_dir: Path) -> None:
         cwd=src_dir, capture_output=True, text=True,
     )
     if status.stdout.strip():
-        print("Uncommitted changes — committing snapshot before evolve...")
+        print("Uncommitted changes — committing snapshot...")
         subprocess.run(["git", "add", "-A"], cwd=src_dir)
         subprocess.run(
-            ["git", "commit", "-m", "evolve: snapshot before evolution loop"],
+            ["git", "commit", "-m", "evolve: snapshot before evolution"],
             cwd=src_dir, capture_output=True,
         )
 
 
 def _git_commit(src_dir: Path, message: str) -> None:
-    """Commit all changes with a descriptive message."""
     subprocess.run(["git", "add", "-A"], cwd=src_dir)
-    status = subprocess.run(
-        ["git", "diff", "--cached", "--quiet"], cwd=src_dir,
-    )
+    status = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=src_dir)
     if status.returncode == 0:
-        print(f"  [git] no changes to commit")
+        print(f"  [git] no changes")
         return
-
-    subprocess.run(
-        ["git", "commit", "-m", message],
-        cwd=src_dir, capture_output=True,
-    )
+    subprocess.run(["git", "commit", "-m", message], cwd=src_dir, capture_output=True)
     print(f"  [git] {message}")

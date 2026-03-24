@@ -31,6 +31,7 @@ def main():
         prog="cli-tester",
         description="Probe any CLI: parse --help, run every command, analyze results.",
     )
+    ap.add_argument("--version", action="version", version="cli-tester 0.1.0")
     sub = ap.add_subparsers(dest="command", required=True)
 
     # --- run ---
