@@ -93,6 +93,18 @@ def main():
             print(f"ERROR: Could not parse --help for '{args.binary}'", file=sys.stderr)
             sys.exit(1)
 
+        # Warn if help output yielded no subcommands and no meaningful options
+        non_help_options = [
+            o for o in tree.global_options
+            if o.flag not in ("--help", "--version", "-h")
+        ]
+        if not tree.commands and not non_help_options:
+            print(
+                "WARNING: No subcommands or options discovered (besides --help/--version). "
+                "The help output format may not be recognized — probe coverage will be limited.",
+                file=sys.stderr,
+            )
+
         # 2. Run every discovered command
         results = run_all_commands(tree, timeout=args.timeout, dry_run=args.dry_run)
 
