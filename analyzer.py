@@ -16,6 +16,21 @@ from runner import CommandResult
 MODEL = "claude-opus-4-6"
 
 
+def _get_round_from_probe(project_dir: Path) -> int:
+    """Find the latest probe_round_N.txt and return N."""
+    runs_dir = project_dir / "runs"
+    if not runs_dir.is_dir():
+        return 0
+    latest = 0
+    for f in runs_dir.glob("probe_round_*.txt"):
+        try:
+            n = int(f.stem.split("_")[-1])
+            latest = max(latest, n)
+        except ValueError:
+            pass
+    return latest
+
+
 def find_readme(binary: str) -> str | None:
     """Try to find and read a README file near the binary."""
     candidates = [Path(".")]
@@ -65,10 +80,11 @@ def build_analysis_prompt(
     binary: str,
     project_dir: Path,
     yolo: bool = False,
+    run_dir: Path | None = None,
 ) -> str:
     """Build the prompt for Claude Code agent to analyze and act."""
     readme = find_readme(binary)
-    improvements_path = project_dir / "improvements.md"
+    improvements_path = project_dir / "runs" / "improvements.md"
     improvements = improvements_path.read_text() if improvements_path.is_file() else None
     current = get_current_improvement(improvements_path)
 
@@ -92,6 +108,12 @@ leave it unchecked. The operator must re-run with --yolo to allow it."""
     improvements_section = f"## improvements.md (current state)\n{improvements}" if improvements else "## improvements.md\n(does not exist yet — you must create it)"
     target_section = f"Current target improvement: {current}" if current else "No improvements yet — create initial improvements.md based on your analysis."
 
+    # Include previous round's post-fix probe results if available
+    prev_probe = ""
+    prev_probe_path = project_dir / "runs" / f"probe_round_{max(1, _get_round_from_probe(project_dir))}.txt"
+    if prev_probe_path.is_file():
+        prev_probe = f"\n## Previous round post-fix probe results\n{prev_probe_path.read_text()}\n"
+
     return f"""\
 You are an adversarial CLI tester working in {project_dir}.
 
@@ -100,8 +122,11 @@ You are an adversarial CLI tester working in {project_dir}.
 {improvements_section}
 
 {target_section}
-
-## Probe results (every command from --help was executed)
+{prev_probe}
+## Probe results (every command from --help was executed BEFORE your fixes)
+These are the results from running every discovered command. After you make fixes,
+the orchestrator will re-probe automatically to verify. You do NOT need to run the
+full probe yourself — but you SHOULD run individual commands to verify specific fixes.
 {probe_summary}
 
 ## CRITICAL RULE: errors first, improvements second
@@ -118,7 +143,7 @@ Before ANY improvement work, you MUST:
 Only when all commands run cleanly (no tracebacks, no crashes) may you proceed to Phase 2.
 
 **Phase 2 — IMPROVEMENTS (only when zero errors)**:
-1. If improvements.md does not exist, create it with improvements you identified.
+1. If runs/improvements.md does not exist, create it with improvements you identified.
    Each improvement must be a checkbox line:
    - [ ] [functional] description
    - [ ] [performance] description
@@ -151,7 +176,7 @@ You MUST only declare convergence when ALL of the following are true:
 - Performance is optimized where reasonable
 - You cannot identify any further meaningful improvement
 
-When you are certain, write a file `runs/CONVERGED` with a short summary of why you
+When you are certain, write a file `{run_dir or 'runs'}/CONVERGED` with a short summary of why you
 believe the project has converged. Example:
   "README 100% fulfilled. All 12 improvements done. 100% probe pass rate. No further improvements identified."
 
@@ -182,8 +207,8 @@ def _patch_sdk_parser():
         pass
 
 
-async def run_claude_agent(prompt: str, project_dir: Path, round_num: int = 1) -> None:
-    """Run Claude Code agent with the given prompt. Logs conversation to runs/."""
+async def run_claude_agent(prompt: str, project_dir: Path, round_num: int = 1, run_dir: Path | None = None) -> None:
+    """Run Claude Code agent with the given prompt. Logs conversation to run_dir/."""
     _patch_sdk_parser()
     from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, ResultMessage
 
@@ -196,10 +221,10 @@ async def run_claude_agent(prompt: str, project_dir: Path, round_num: int = 1) -
         include_partial_messages=True,
     )
 
-    # Prepare conversation log file
-    runs_dir = project_dir / "runs"
-    runs_dir.mkdir(exist_ok=True)
-    log_path = runs_dir / f"conversation_loop_{round_num}.md"
+    # Prepare conversation log file in run directory
+    out_dir = run_dir or (project_dir / "runs")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    log_path = out_dir / f"conversation_loop_{round_num}.md"
     log = open(log_path, "w")
     log.write(f"# Evolution Round {round_num}\n\n")
 
@@ -290,6 +315,7 @@ def analyze_and_fix(
     yolo: bool = False,
     max_retries: int = 5,
     round_num: int = 1,
+    run_dir: Path | None = None,
 ) -> None:
     """Run Claude opus agent to analyze results and fix code directly."""
     try:
@@ -298,7 +324,7 @@ def analyze_and_fix(
         print("WARN: claude-code-sdk not installed, skipping agent analysis")
         return
 
-    prompt = build_analysis_prompt(tree, results, binary, project_dir, yolo=yolo)
+    prompt = build_analysis_prompt(tree, results, binary, project_dir, yolo=yolo, run_dir=run_dir)
 
     import warnings
     warnings.filterwarnings("ignore", message=".*cancel scope.*")
@@ -306,7 +332,7 @@ def analyze_and_fix(
 
     for attempt in range(1, max_retries + 1):
         try:
-            asyncio.run(run_claude_agent(prompt, project_dir, round_num=round_num))
+            asyncio.run(run_claude_agent(prompt, project_dir, round_num=round_num, run_dir=run_dir))
             return  # success
         except RuntimeError as e:
             if "cancel scope" in str(e) or "Event loop is closed" in str(e):

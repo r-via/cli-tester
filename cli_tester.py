@@ -55,6 +55,7 @@ def main():
     rnd_p.add_argument("--round-num", type=int, required=True)
     rnd_p.add_argument("--timeout", type=int, default=10)
     rnd_p.add_argument("--target-dir", default=None)
+    rnd_p.add_argument("--run-dir", default=None)
     rnd_p.add_argument("--yolo", action="store_true")
 
     args = ap.parse_args()
@@ -97,6 +98,7 @@ def main():
             timeout=args.timeout,
             target_dir=args.target_dir,
             yolo=args.yolo,
+            run_dir=args.run_dir,
         )
 
 

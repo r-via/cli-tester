@@ -2,13 +2,23 @@
 
 Each round runs as a **separate subprocess** so that code changes
 made by opus in round N are picked up by round N+1.
+
+Each evolve session creates a timestamped run directory:
+  runs/20260324_160000/
+    ├── conversation_loop_1.md
+    ├── conversation_loop_2.md
+    ├── probe_round_1.txt
+    ├── probe_round_2.txt
+    └── CONVERGED          (written by opus when done)
+
+improvements.md stays in runs/ (shared across sessions).
 """
 
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from analyzer import count_checked, count_unchecked, get_current_improvement
@@ -33,7 +43,13 @@ def evolve_loop(
 ) -> None:
     """Orchestrate evolution by launching each round as a subprocess."""
     src_dir = _resolve_src_dir(binary, target_dir)
-    improvements_path = src_dir / "improvements.md"
+    improvements_path = src_dir / "runs" / "improvements.md"
+
+    # Create timestamped run directory
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = src_dir / "runs" / timestamp
+    run_dir.mkdir(parents=True, exist_ok=True)
+    print(f"  Run directory: {run_dir}")
 
     # Ensure git
     _ensure_git(src_dir)
@@ -72,6 +88,7 @@ def evolve_loop(
             binary,
             "--round-num", str(round_num),
             "--timeout", str(timeout),
+            "--run-dir", str(run_dir),
         ]
         if target_dir:
             cmd += ["--target-dir", target_dir]
@@ -86,7 +103,7 @@ def evolve_loop(
             else:
                 print(f"\n  Round {round_num} failed (exit {result.returncode})")
 
-        # Re-read improvements after subprocess ran (code may have changed)
+        # Re-read improvements after subprocess ran
         unchecked = count_unchecked(improvements_path)
         checked = count_checked(improvements_path)
 
@@ -96,12 +113,11 @@ def evolve_loop(
             print(f"\n  Progress: {checked} done, {unchecked} remaining")
 
         # Check if agent wrote CONVERGED marker
-        converged_path = src_dir / "runs" / "CONVERGED"
+        converged_path = run_dir / "CONVERGED"
         if converged_path.is_file():
             reason = converged_path.read_text().strip()
             print(f"\n*** CONVERGED at round {round_num} ***")
             print(f"  {reason}")
-            converged_path.unlink()  # clean up marker
             return
 
     unchecked = count_unchecked(improvements_path)
@@ -118,6 +134,7 @@ def run_single_round(
     timeout: int = 10,
     target_dir: str | None = None,
     yolo: bool = False,
+    run_dir: str | None = None,
 ) -> None:
     """Execute a single evolution round (called as subprocess)."""
     from parser import parse_help
@@ -126,7 +143,14 @@ def run_single_round(
     from report import print_probe_summary
 
     src_dir = _resolve_src_dir(binary, target_dir)
-    improvements_path = src_dir / "improvements.md"
+    improvements_path = src_dir / "runs" / "improvements.md"
+
+    # Use provided run_dir or fallback
+    if run_dir:
+        rdir = Path(run_dir)
+    else:
+        rdir = src_dir / "runs"
+    rdir.mkdir(parents=True, exist_ok=True)
 
     # 1. Probe
     tree = parse_help(binary, timeout=timeout)
@@ -140,7 +164,7 @@ def run_single_round(
     # 2. Let Claude opus agent analyze and fix
     current = get_current_improvement(improvements_path)
     print(f"\n  [agent] Claude opus working...")
-    analyze_and_fix(tree, results, binary, src_dir, yolo=yolo, round_num=round_num)
+    analyze_and_fix(tree, results, binary, src_dir, yolo=yolo, round_num=round_num, run_dir=rdir)
 
     # 3. Git commit
     new_current = get_current_improvement(improvements_path)
@@ -148,6 +172,28 @@ def run_single_round(
         _git_commit(src_dir, f"evolve: ✓ {current}")
     else:
         _git_commit(src_dir, f"evolve: round {round_num}")
+
+    # 4. Re-probe after fixes
+    print(f"\n  [verify] Re-probing after fixes...")
+    tree2 = parse_help(binary, timeout=timeout)
+    if tree2:
+        results2 = run_all_commands(tree2, timeout=timeout)
+        ok = sum(1 for r in results2 if r.ok)
+        total = len(results2)
+        failed_cmds = [r for r in results2 if not r.ok]
+        print(f"  [verify] {ok}/{total} probes pass")
+        for r in failed_cmds:
+            print(f"    FAIL [{r.exit_code}] {r.command}")
+
+        # Save probe results in run directory
+        probe_path = rdir / f"probe_round_{round_num}.txt"
+        with open(probe_path, "w") as f:
+            f.write(f"Round {round_num} post-fix probe: {ok}/{total} passed\n")
+            for r in results2:
+                status = "OK" if r.ok else f"FAIL[{r.exit_code}]"
+                f.write(f"  [{status}] {r.command}\n")
+                if not r.ok and r.stderr:
+                    f.write(f"    {r.stderr[:300]}\n")
 
 
 def _resolve_src_dir(binary: str, target_dir: str | None) -> Path:
