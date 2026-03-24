@@ -327,16 +327,23 @@ def fallback_report(results: list[CommandResult]) -> dict:
     """Simple local analysis when Claude Code SDK is not available."""
     issues = []
     for r in results:
+        if r.skipped:
+            continue
         if r.timed_out:
             issues.append(f"TIMEOUT: {r.command} ({r.duration_ms}ms)")
         elif r.exit_code != 0 and r.exit_code != -1:
             issues.append(f"EXIT {r.exit_code}: {r.command} — {r.stderr[:200]}")
 
-    total = len(results)
-    ok = sum(1 for r in results if r.ok)
-    return {
+    skipped = sum(1 for r in results if r.skipped)
+    active = [r for r in results if not r.skipped]
+    total = len(active)
+    ok = sum(1 for r in active if r.ok)
+    report = {
         "total": total,
         "passed": ok,
         "failed": total - ok,
         "issues": issues,
     }
+    if skipped:
+        report["skipped"] = skipped
+    return report
