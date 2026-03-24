@@ -132,7 +132,30 @@ Only when all commands run cleanly (no tracebacks, no crashes) may you proceed t
 4. Only check off the improvement (change "- [ ]" to "- [x]") AFTER verifying it works.
 
 5. Do NOT touch already checked [x] items.
+
+6. If ALL checkboxes are checked, look for NEW improvements to add.
+   Review the code holistically against the README. Ask yourself:
+   - Does the CLI do everything the README promises?
+   - Are there best practices missing? (error handling, input validation, edge cases)
+   - Are there performance optimizations possible?
+   - Is the code clean, maintainable, well-structured?
+   Add any new improvements as unchecked items in improvements.md.
 {yolo_note}
+
+**Phase 3 — CONVERGENCE (only when everything is truly done)**:
+You MUST only declare convergence when ALL of the following are true:
+- Zero errors in console output
+- All improvements.md checkboxes are checked
+- The README specification is 100% fulfilled — every feature, command, and behavior it describes works
+- Best practices are applied (error handling, input validation, edge cases)
+- Performance is optimized where reasonable
+- You cannot identify any further meaningful improvement
+
+When you are certain, write a file `runs/CONVERGED` with a short summary of why you
+believe the project has converged. Example:
+  "README 100% fulfilled. All 12 improvements done. 100% probe pass rate. No further improvements identified."
+
+Do NOT converge prematurely. If in doubt, add more improvements instead.
 
 ## Logging
 - Always run commands to verify your changes work.
@@ -208,6 +231,8 @@ async def run_claude_agent(prompt: str, project_dir: Path, round_num: int = 1) -
             continue
 
         if isinstance(message, (AssistantMessage, ResultMessage)):
+            if not hasattr(message, "content") or not message.content:
+                continue
             for block in message.content:
                 block_type = type(block).__name__
 
@@ -275,10 +300,25 @@ def analyze_and_fix(
 
     prompt = build_analysis_prompt(tree, results, binary, project_dir, yolo=yolo)
 
+    import warnings
+    warnings.filterwarnings("ignore", message=".*cancel scope.*")
+    warnings.filterwarnings("ignore", message=".*Event loop is closed.*")
+
     for attempt in range(1, max_retries + 1):
         try:
             asyncio.run(run_claude_agent(prompt, project_dir, round_num=round_num))
             return  # success
+        except RuntimeError as e:
+            if "cancel scope" in str(e) or "Event loop is closed" in str(e):
+                return  # SDK cleanup noise — agent finished successfully
+            if "rate_limit" in str(e).lower() and attempt < max_retries:
+                wait = 60 * attempt
+                print(f"  [sdk] rate limited — waiting {wait}s (attempt {attempt}/{max_retries})...")
+                import time
+                time.sleep(wait)
+            else:
+                print(f"WARN: Claude Code agent failed ({e})")
+                return
         except Exception as e:
             if "rate_limit" in str(e).lower() and attempt < max_retries:
                 wait = 60 * attempt

@@ -95,11 +95,13 @@ def evolve_loop(
         else:
             print(f"\n  Progress: {checked} done, {unchecked} remaining")
 
-        if unchecked == 0 and checked > 0:
-            if _RICH:
-                _console.print(f"\n[bold green]*** CONVERGED at round {round_num} — all {checked} improvements done ***[/bold green]")
-            else:
-                print(f"\n*** CONVERGED at round {round_num} — all {checked} improvements done ***")
+        # Check if agent wrote CONVERGED marker
+        converged_path = src_dir / "runs" / "CONVERGED"
+        if converged_path.is_file():
+            reason = converged_path.read_text().strip()
+            print(f"\n*** CONVERGED at round {round_num} ***")
+            print(f"  {reason}")
+            converged_path.unlink()  # clean up marker
             return
 
     unchecked = count_unchecked(improvements_path)
