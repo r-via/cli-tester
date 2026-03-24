@@ -4,7 +4,7 @@ Automated CLI tester with self-healing evolution loop powered by Claude opus.
 
 Feed it any CLI binary → it parses `--help`, runs every command and option, analyzes the results adversarially, and generates a report.
 
-In **evolve** mode, it loops: probe → analyze → patch → rebuild → git commit, until the CLI fully converges to its README specification.
+In **evolve** mode, it loops: probe → analyze → patch → commit + push, one improvement at a time, until the CLI fully converges to its README specification.
 
 ## Usage
 
@@ -49,7 +49,7 @@ Each `evolve` session creates a timestamped run directory. Each round runs as a 
 runs/
 ├── improvements.md                    # shared across sessions
 ├── 20260324_160000/                   # session 1
-│   ├── conversation_loop_1.md         # full opus conversation
+│   ├── conversation_loop_1.md         # full opus conversation log
 │   ├── conversation_loop_2.md
 │   ├── probe_round_1.txt             # post-fix probe results
 │   ├── probe_round_2.txt
@@ -58,34 +58,39 @@ runs/
     └── ...
 ```
 
-**Each round:**
+**Each round — one improvement at a time:**
 
 ```
 1. Orchestrator probes all commands → results
-2. Opus receives: README + improvements.md + probe results + previous round's probe
-3. Phase 1 — ERRORS: fix any crashes/tracebacks (mandatory, blocks improvements)
-4. Phase 2 — IMPROVEMENTS: work on first unchecked item, verify fix, check it off
-5. Phase 3 — CONVERGENCE: only when README 100% fulfilled + best practices + no further improvements
-6. Git commit
-7. Orchestrator re-probes to verify → saves probe_round_N.txt
-8. Next round starts as fresh subprocess (reloaded code)
+2. Opus receives: README + improvements.md + probe results + previous probe
+3. Opus reads run directory (previous conversations, probe results) for context
+4. Phase 1 — ERRORS: fix any crashes/tracebacks (mandatory, blocks improvements)
+5. Phase 2 — IMPROVEMENT: implement the single unchecked item, verify, check it off
+   Then add exactly one new improvement (the most impactful next issue)
+6. Phase 3 — CONVERGENCE: only when README 100% fulfilled + best practices applied
+7. Opus verifies every file it wrote/edited by reading it back
+8. Git commit + push
+9. Orchestrator re-probes to verify → saves probe_round_N.txt
+10. Next round starts as fresh subprocess (reloaded code)
 ```
 
 ### `improvements.md` — the convergence tracker
 
-Generated and maintained by opus in `runs/improvements.md`. Each improvement has:
+Generated and maintained by opus in `runs/improvements.md`. One improvement added per round:
 - A checkbox (`[ ]` pending, `[x]` done)
 - A type tag: `[functional]` or `[performance]`
 - Optional `[needs-package]` flag — skipped unless `--yolo`
 
-When all checkboxes are checked, opus looks for **new** improvements before converging.
+Each round: implement the unchecked item → check it off → add one new item (if any).
+When no further improvement is needed, proceed to convergence.
 
 ### Convergence
 
 Opus decides when to converge. It must verify:
 - Zero errors in console output
+- All output files written correctly (verified by reading them back)
 - README specification 100% fulfilled
-- All best practices applied
+- All best practices applied (error handling, input validation, edge cases)
 - Performance optimized where reasonable
 - No further meaningful improvement identified
 - It writes `CONVERGED` with its justification

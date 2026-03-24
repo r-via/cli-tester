@@ -49,12 +49,17 @@ def parse_help(binary: str, timeout: int = 10) -> HelpTree | None:
     tree = HelpTree(binary=binary, help_text=help_text)
     tree.commands, tree.global_options = _parse_sections(help_text)
 
+    # Collect known command names for positional-arg detection
+    known_commands = {cmd.name for cmd in tree.commands}
+
     # Recursively get subcommand help
     for cmd in tree.commands:
         sub_help = _run_help(binary, cmd.name, timeout=timeout)
         if sub_help:
             cmd.options = _parse_options_section(sub_help)
-            cmd.has_required_positional = _has_required_positional(sub_help)
+            cmd.has_required_positional = _has_required_positional(
+                sub_help, binary, known_commands,
+            )
             _, _ = _parse_sections(sub_help)  # could recurse deeper
 
     return tree
@@ -175,7 +180,11 @@ def _parse_option_line(line: str) -> Option | None:
     )
 
 
-def _has_required_positional(text: str) -> bool:
+def _has_required_positional(
+    text: str,
+    binary: str = "",
+    known_commands: set[str] | None = None,
+) -> bool:
     """Detect if a subcommand's help text shows required positional arguments.
 
     Looks at the usage line for non-optional positional args (words that are not
@@ -185,6 +194,9 @@ def _has_required_positional(text: str) -> bool:
         usage: cli-tester status [-h]                    →  False
 
     Handles multi-line usage (argparse wraps long usage lines with indentation).
+
+    *binary* and *known_commands* are used to distinguish program/subcommand
+    name tokens from genuine positional arguments.
     """
     lines = text.splitlines()
     usage = ""
@@ -205,20 +217,40 @@ def _has_required_positional(text: str) -> bool:
     if not usage:
         return False
 
+    # Build set of tokens that are part of the binary invocation or known
+    # subcommand names — these should not be treated as positional args.
+    skip_tokens: set[str] = set()
+    if known_commands:
+        skip_tokens.update(known_commands)
+    # The binary string may be multi-word (e.g. "python3 cli_tester.py").
+    # Extract the basename-like parts so we recognise them in the usage line.
+    if binary:
+        for part in binary.split():
+            skip_tokens.add(part)
+            # Also add the stem without extension  (cli_tester.py → cli_tester)
+            stem = part.rsplit(".", 1)[0] if "." in part else part
+            skip_tokens.add(stem)
+    # The usage line often renders the prog name differently (e.g. "cli-tester"
+    # vs "cli_tester.py"), so also extract it from the usage line itself: all
+    # leading tokens before the first bracket/curly/flag are program names.
+    pre_bracket = re.split(r"[\[\{]", usage)[0]
+    for tok in pre_bracket.split():
+        if tok.startswith("-"):
+            break
+        skip_tokens.add(tok)
+
     # Remove bracketed optional groups  [...] and curly groups {...}
     cleaned = re.sub(r"\[.*?\]", "", usage)
     cleaned = re.sub(r"\{.*?\}", "", cleaned)
     tokens = cleaned.split()
 
-    # Count leading "name" tokens in original usage (before first [ or {)
-    # These are the program/subcommand names, not positional args
-    pre_bracket = re.split(r"[\[\{]", usage)[0]
-    name_count = len(pre_bracket.split())
-
-    # Everything after the name tokens is a positional arg candidate
-    trailing = tokens[name_count:]
-    for tok in trailing:
+    for tok in tokens:
         if tok.startswith("-") or "/" in tok:
+            continue
+        if tok in skip_tokens:
+            continue
+        # Also skip "..." (argparse ellipsis)
+        if tok == "...":
             continue
         # Positional args in argparse are lowercase words or ALLCAPS
         if re.match(r"^[a-z_][a-z0-9_-]*$", tok) or re.match(r"^[A-Z][A-Z0-9_]*$", tok):

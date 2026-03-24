@@ -143,13 +143,17 @@ Before ANY improvement work, you MUST:
 Only when all commands run cleanly (no tracebacks, no crashes) may you proceed to Phase 2.
 
 **Phase 2 — IMPROVEMENTS (only when zero errors)**:
-1. If runs/improvements.md does not exist, create it with improvements you identified.
-   Each improvement must be a checkbox line:
+
+IMPORTANT: Only ONE improvement per turn. Do not batch multiple improvements.
+
+1. If runs/improvements.md does not exist, create it with a SINGLE improvement — the
+   most impactful one you identified. Do NOT list multiple items upfront.
+   Format:
    - [ ] [functional] description
    - [ ] [performance] description
-   Improvements that need new packages: - [ ] [functional] [needs-package] description
+   If it needs a new package: - [ ] [functional] [needs-package] description
 
-2. If improvements.md exists, focus on the FIRST unchecked [ ] item.
+2. If improvements.md exists and has an unchecked [ ] item, implement ONLY that one.
    Read the source code, understand the issue, and fix it by editing the files directly.
 
 3. After fixing, verify the fix works by running the relevant command.
@@ -158,13 +162,14 @@ Only when all commands run cleanly (no tracebacks, no crashes) may you proceed t
 
 5. Do NOT touch already checked [x] items.
 
-6. If ALL checkboxes are checked, look for NEW improvements to add.
-   Review the code holistically against the README. Ask yourself:
+6. After checking off the improvement, add exactly ONE new unchecked improvement
+   as the next item — the most impactful remaining issue you see.
+   Review the code against the README:
    - Does the CLI do everything the README promises?
    - Are there best practices missing? (error handling, input validation, edge cases)
    - Are there performance optimizations possible?
    - Is the code clean, maintainable, well-structured?
-   Add any new improvements as unchecked items in improvements.md.
+   If you see no further improvement needed, do NOT add one — proceed to Phase 3.
 {yolo_note}
 
 **Phase 3 — CONVERGENCE (only when everything is truly done)**:

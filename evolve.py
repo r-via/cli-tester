@@ -254,4 +254,8 @@ def _git_commit(src_dir: Path, message: str) -> None:
         print(f"  [git] no changes")
         return
     subprocess.run(["git", "commit", "-m", message], cwd=src_dir, capture_output=True)
-    print(f"  [git] {message}")
+    result = subprocess.run(["git", "push"], cwd=src_dir, capture_output=True, text=True)
+    if result.returncode == 0:
+        print(f"  [git] {message} → pushed")
+    else:
+        print(f"  [git] {message} (push failed: {result.stderr.strip()[:100]})")
