@@ -1,0 +1,9 @@
+Round 2 post-fix probe: 3/8 passed
+  [OK] python3 cli_tester.py --help
+  [OK] python3 cli_tester.py run --help
+  [OK] python3 cli_tester.py evolve --help
+  [FAIL[0]] python3 cli_tester.py run --timeout
+  [FAIL[0]] python3 cli_tester.py run --dry-run
+  [FAIL[0]] python3 cli_tester.py evolve --rounds
+  [FAIL[0]] python3 cli_tester.py evolve --timeout
+  [FAIL[0]] python3 cli_tester.py evolve --yolo
