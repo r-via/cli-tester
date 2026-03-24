@@ -117,6 +117,7 @@ def generate_report(tree, results: list[CommandResult], analysis: dict) -> dict:
                 "duration_ms": r.duration_ms,
                 "ok": r.ok,
                 "skipped": r.skipped,
+                **({"skip_reason": r.stdout} if r.skipped and r.stdout else {}),
             }
             for r in results
         ],

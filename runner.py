@@ -45,14 +45,36 @@ def run_all_commands(
 
     # 3. Boolean flags on subcommands (skip value-taking flags — we'd need to guess values)
     #    Also skip subcommands that require positional args — the flag alone will fail
-    if not dry_run:
-        for cmd in tree.commands:
-            if cmd.has_required_positional:
-                continue
+    for cmd in tree.commands:
+        if cmd.has_required_positional:
+            # Report all options on this subcommand as skipped
             for opt in cmd.options:
-                if not opt.takes_value:
-                    full = f"{tree.binary} {cmd.name} {opt.flag}"
-                    results.append(_run(full, timeout))
+                if opt.flag in ("--help",):
+                    continue
+                full = f"{tree.binary} {cmd.name} {opt.flag}"
+                results.append(_make_result(
+                    full, 0,
+                    "[skipped: subcommand requires positional args — cannot probe flags alone]",
+                    "", 0, skipped=True,
+                ))
+            continue
+        for opt in cmd.options:
+            if opt.flag in ("--help",):
+                continue
+            if opt.takes_value:
+                # Value-taking options can't be safely probed without guessing values
+                full = f"{tree.binary} {cmd.name} {opt.flag}"
+                results.append(_make_result(
+                    full, 0,
+                    "[skipped: value-taking option — cannot probe without a value]",
+                    "", 0, skipped=True,
+                ))
+            elif dry_run:
+                full = f"{tree.binary} {cmd.name} {opt.flag}"
+                results.append(_make_result(full, 0, "[dry-run: skipped]", "", 0, skipped=True))
+            else:
+                full = f"{tree.binary} {cmd.name} {opt.flag}"
+                results.append(_run(full, timeout))
 
     # 4. Global flags
     for opt in tree.global_options:
