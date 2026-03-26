@@ -156,11 +156,13 @@ def _save_run(report: dict, binary: str, custom_path: str | None = None) -> Path
     """
     safe_name = binary.replace("/", "_").replace(" ", "_")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    runs_out = RUNS_DIR / f"{safe_name}_{timestamp}.json"
+    date_dir = RUNS_DIR / timestamp
+    reports_dir = date_dir / "reports"
+    runs_out = reports_dir / f"{safe_name}.json"
 
-    # Always save to runs/
+    # Save to runs/<timestamp>/reports/
     try:
-        RUNS_DIR.mkdir(exist_ok=True)
+        reports_dir.mkdir(parents=True, exist_ok=True)
         with open(runs_out, "w") as f:
             json.dump(report, f, indent=2)
     except OSError as e:

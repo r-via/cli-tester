@@ -6,40 +6,140 @@ Feed it any CLI binary → it parses `--help`, runs every command and option, an
 
 In **evolve** mode, it loops: probe → analyze → patch → commit + push, one improvement at a time, until the CLI fully converges to its README specification.
 
+## Installation
+
+```bash
+pip install cli-tester
+```
+
+Or install from source:
+
+```bash
+git clone <repo-url> && cd cli-tester
+pip install -e .
+```
+
 ## Usage
 
 ```bash
 # Single probe pass
-python cli_tester.py run <binary> [--timeout 10] [--dry-run] [-o report.json]
+cli-tester run <binary> [--timeout 10] [--dry-run] [-o report.json] [--format json]
+
+# Compare two probe reports
+cli-tester compare <report1.json> <report2.json> [--format json|text]
+
+# Watch mode — re-probe on source file changes
+cli-tester watch <binary> [--timeout 10] [--glob "*.py"]
 
 # Self-improving evolution loop
-python cli_tester.py evolve <binary> [--rounds 5] [--target-dir ./src]
+cli-tester evolve <binary> [--rounds 5] [--target-dir ./src]
 
 # Allow adding new packages during evolution
-python cli_tester.py evolve <binary> --yolo
+cli-tester evolve <binary> --yolo
+
+# Parallel probing
+cli-tester run <binary> --parallel 4
 ```
+
+### Global flags
+
+```bash
+cli-tester <command> --no-color     # Disable colored output
+cli-tester <command> --quiet        # Minimal output (errors only)
+cli-tester <command> --verbose      # Show all probe details
+```
+
+## Configuration
+
+cli-tester looks for `.cli-tester.yaml` in the current directory (or specify `--config <path>`):
+
+```yaml
+binary: "python3 my_tool.py"
+timeout: 15
+parallel: 4
+exclude_commands:
+  - dangerous-reset
+  - drop-database
+expected_exit_codes:
+  "grep --not-found": 1
+  "diff file1 file2": 1
+report:
+  format: junit
+  output: reports/
+```
+
+When a config file is present, you can run simply:
+
+```bash
+cli-tester run          # uses binary from config
+cli-tester evolve       # uses binary + settings from config
+```
+
+CLI arguments override config file values.
 
 ## Examples
 
 ```bash
-# Dry-run against git (parse --help only, don't execute)
-python cli_tester.py run git --dry-run
+# Dry-run against git (parse --help only, preview what would be tested)
+cli-tester run git --dry-run
 
-# Full probe of a local CLI
-python cli_tester.py run "npx anatoly"
+# Full probe of a local CLI with JUnit output for CI
+cli-tester run "npx anatoly" --format junit -o results.xml
+
+# Compare yesterday's probe against today's
+cli-tester compare runs/report-v1.json runs/report-v2.json
+
+# Watch mode during development
+cli-tester watch "python3 my_cli.py" --glob "src/**/*.py"
 
 # Evolve mode: self-improving loop
-python cli_tester.py evolve "python3 cli_tester.py" --rounds 10
+cli-tester evolve "python3 cli_tester.py" --rounds 10
+
+# Parallel probing for large CLIs
+cli-tester run kubectl --parallel 8 --timeout 5
 ```
 
 ## How it works
 
 ### `run` — single probe pass
 
-1. Parse `<binary> --help` → extract commands & options
-2. Run every subcommand `--help`, then every boolean flag
+1. Parse `<binary> --help` → extract commands & options (via parser plugins)
+2. Run every subcommand `--help`, then every boolean flag (parallel if `--parallel`)
 3. Local analysis of exit codes and failures
-4. Generate JSON report + terminal output → saved to `runs/`
+4. Generate report (JSON, JUnit XML, HTML, or Markdown) + terminal output → saved to `runs/`
+
+#### Progress display
+
+During probing, a progress bar shows real-time status:
+
+```
+Testing kubectl: ████████░░ 80% (42/53 commands) · 3 failed · ETA 12s
+```
+
+After completion, a summary dashboard shows pass rate, skip count, and top failures.
+
+### `compare` — diff two probe runs
+
+```bash
+cli-tester compare runs/report-v1.json runs/report-v2.json
+```
+
+Outputs:
+- New commands/options discovered
+- Removed commands/options
+- Changed exit codes (regressions)
+- Changed pass/fail status per probe
+- Overall pass rate delta
+
+Use in CI to catch CLI regressions between versions.
+
+### `watch` — re-probe on file changes
+
+```bash
+cli-tester watch "python3 my_cli.py" --glob "src/**/*.py"
+```
+
+Monitors source files for changes, then automatically re-probes and displays a diff against the previous run. Useful during active development to see how code changes affect CLI behavior.
 
 ### `evolve` — self-improving loop
 
@@ -78,12 +178,27 @@ workflows/
         ├── step-01-agent-loading.md
         ├── step-02-discussion-orchestration.md
         └── step-03-graceful-exit.md
+
+tests/
+├── conftest.py                        # shared fixtures
+├── fixtures/                          # sample --help outputs from real CLIs
+│   ├── git_help.txt
+│   ├── docker_help.txt
+│   ├── kubectl_help.txt
+│   └── cargo_help.txt
+├── mock_cli.py                        # mock CLI for end-to-end tests
+├── test_parser.py                     # unit tests for help parsing
+├── test_runner.py                     # unit tests for command execution
+├── test_report.py                     # unit + snapshot tests for reports
+├── test_compare.py                    # tests for compare command
+├── test_cli.py                        # end-to-end CLI tests
+└── test_evolve.py                     # integration tests for evolve loop
 ```
 
 **Each round — one improvement at a time:**
 
 ```
-1. Orchestrator probes all commands → results
+1. Orchestrator probes all commands → results (parallel if configured)
 2. Opus receives: README + improvements.md + memory.md + probe results + system prompt
 3. Opus reads run directory (previous conversations, probe results) for context
 4. Opus reads memory.md to avoid repeating past mistakes
@@ -109,11 +224,35 @@ workflows/
 17. If approved: new evolution loop against updated README
 ```
 
+### Parser plugin architecture
+
+cli-tester supports multiple help output formats through a parser plugin system:
+
+| Plugin | Detects | Handles |
+|--------|---------|---------|
+| `argparse` | Python argparse-style `--help` | Default, built-in |
+| `click` | Click-style `--help` with `Commands:` sections | Auto-detected |
+| `cobra` | Go cobra-style with `Available Commands:` | Auto-detected |
+| `clap` | Rust clap-style with `USAGE:` header | Auto-detected |
+| `man` | man-page style with `.TH` headers | Via `--parser man` |
+| `custom` | User-defined regex patterns | Via config file |
+
+Parser selection is automatic based on help output heuristics. Override with `--parser <name>`.
+
+Custom parsers can be registered in `.cli-tester.yaml`:
+
+```yaml
+parsers:
+  my-format:
+    command_pattern: "^  (\\w+)\\s+(.+)$"
+    option_pattern: "^  --(\\w+)\\s+(.+)$"
+```
+
 ### `improvements.md` — the convergence tracker
 
 Generated and maintained by opus in `runs/improvements.md`. One improvement added per round:
 - A checkbox (`[ ]` pending, `[x]` done)
-- A type tag: `[functional]` or `[performance]`
+- A type tag: `[functional]`, `[performance]`, or `[epic]`
 - Optional `[needs-package]` flag — skipped unless `--yolo`
 
 Each round: implement the unchecked item → check it off → add one new item (if any).
@@ -141,6 +280,19 @@ Opus decides when to converge. It must verify:
 - Performance optimized where reasonable
 - No further meaningful improvement identified
 - It writes `CONVERGED` with its justification
+
+### Exit code contracts
+
+By default, exit code 0 means success. Override per-command in `.cli-tester.yaml`:
+
+```yaml
+expected_exit_codes:
+  "grep pattern file": 1          # 1 = no match, valid behavior
+  "diff file1 file2": [0, 1]     # 0 = same, 1 = different, both valid
+  "test -f missing": 1            # expected to fail
+```
+
+Probes are marked as pass/fail against these contracts instead of assuming 0 = ok.
 
 ### Phase 4 — Party mode (post-convergence)
 
@@ -227,10 +379,15 @@ After full convergence, all agents from agents/*.md are loaded for a
 multi-agent discussion following workflows/party-mode/. They produce
 a README_proposal.md for operator review.
 
-perf(parser): cache help output with lru_cache
+feat(compare): add compare command for CI regression detection
 
-Repeated parse_help() calls for the same binary+subcommand now return
-cached results instead of spawning a new subprocess. Cache size: 256.
+cli-tester compare report1.json report2.json diffs probe results,
+showing new/removed commands, exit code changes, and pass rate delta.
+
+perf(runner): parallel probe execution with ThreadPoolExecutor
+
+run_all_commands now accepts --parallel N to execute probes concurrently.
+Default remains sequential for deterministic output.
 ```
 
 The evolution agent must follow this convention for every commit it creates.
@@ -243,17 +400,54 @@ By default, improvements that require new packages are blocked. Use `--yolo` to 
 
 | File | Role |
 |------|------|
+| `pyproject.toml` | Package metadata, dependencies, entry points |
 | `cli_tester.py` | Entry point, CLI argument parsing |
 | `parser.py` | Parse `--help` output into structured command tree |
-| `runner.py` | Execute commands, capture stdout/stderr/exit codes |
+| `parsers/` | Parser plugins for different help formats (argparse, click, cobra, clap) |
+| `runner.py` | Execute commands, capture stdout/stderr/exit codes (supports parallel) |
 | `analyzer.py` | Claude opus agent — adversarial analysis + code fixes |
-| `report.py` | Generate and display reports |
+| `report.py` | Generate and display reports (JSON, JUnit XML, HTML, Markdown) |
+| `compare.py` | Compare two probe reports, detect regressions |
+| `watcher.py` | File watcher for `watch` mode |
+| `config.py` | Load and merge `.cli-tester.yaml` with CLI args |
 | `evolve.py` | Evolution loop orchestrator (subprocess per round) |
 | `prompts/system.md` | Agent system prompt (editable by opus) |
 | `runs/improvements.md` | Improvement checklist (one per round) |
 | `runs/memory.md` | Cumulative error log (compacted each round) |
 | `agents/*.md` | Agent personas for party mode brainstorming |
 | `workflows/party-mode/` | Multi-agent discussion workflow |
+| `tests/` | Unit, integration, and end-to-end tests |
+
+## Testing
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=. --cov-report=html
+
+# Run specific test module
+pytest tests/test_parser.py -v
+
+# Run end-to-end tests only
+pytest tests/test_cli.py -v
+```
+
+### Test structure
+
+- **Unit tests** (`test_parser.py`, `test_runner.py`, `test_report.py`) — test individual functions with mocked I/O
+- **Fixture tests** — parse real `--help` outputs from `tests/fixtures/` (git, docker, kubectl, cargo) and assert correct command trees
+- **Snapshot tests** (`test_report.py`) — generate reports and compare against golden snapshots
+- **Integration tests** (`test_evolve.py`) — test evolve loop mechanics with a mock agent
+- **End-to-end tests** (`test_cli.py`) — run `cli-tester` against `tests/mock_cli.py` and verify full pipeline
+
+### CI
+
+GitHub Actions runs on every push and PR:
+- `pytest` with Python 3.10, 3.11, 3.12
+- Coverage report uploaded as artifact
+- Coverage badge in README
 
 ## Requirements
 
@@ -262,6 +456,11 @@ By default, improvements that require new packages are blocked. Use `--yolo` to 
 - Git repository (required for `evolve` mode)
 - Claude Code CLI installed and authenticated
 
+### Optional dependencies
+
+- `rich` — colored terminal output, progress bars, tables (graceful fallback without it)
+- `watchdog` — required for `watch` mode (`pip install cli-tester[watch]`)
+
 ## Without Claude Agent SDK
 
-The `run` command works without the SDK — it falls back to a local analysis that checks exit codes and timeouts. The `evolve` command requires the SDK.
+The `run`, `compare`, and `watch` commands work without the SDK — they use local analysis that checks exit codes, timeouts, and exit code contracts. The `evolve` command requires the SDK.
